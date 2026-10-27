@@ -275,6 +275,10 @@ a.btn { text-decoration: none; }
   .no-print, .toast { display: none !important; }
   .solo-print { display: block; }
 }
+.set.aprox .n, .set.drop .n { font-size: 15px; }
+.set.aprox .n { color: var(--muted); }
+.set.aprox input { border-style: dashed; }
+.set.drop .n { color: var(--accent); }
 @media (prefers-reduced-motion: no-preference) {
   .toast { animation: up .25s ease-out; }
   .sheet { animation: up .22s ease-out; }
@@ -413,7 +417,7 @@ function racha() {
 function semanaActual() {
   const l = lunes(new Date()), k0 = ymd(l), ses = S.sesiones.filter(s => s.fecha >= k0);
   let vol = 0, series = 0;
-  ses.forEach(s => s.ejercicios.forEach(e => e.series.forEach(x => { series++; vol += (x.kg || 0) * (x.reps || 0); })));
+  ses.forEach(s => s.ejercicios.forEach(e => e.series.filter(contable).forEach(x => { series++; vol += (x.kg || 0) * (x.reps || 0); })));
   const cardioMin = S.cardio.filter(c => c.fecha >= k0).reduce((a, c) => a + (c.minutos || 0), 0);
   return { sesiones: ses.length, vol, series, cardioMin };
 }
@@ -435,7 +439,7 @@ function mejor(nombre, sesiones = S.sesiones) {
   let best = null;
   sesiones.forEach(s => s.ejercicios.forEach(e => {
     if (!mismo(e.nombre, nombre)) return;
-    e.series.forEach(x => { if (best === null || x.kg > best.kg || (x.kg === best.kg && x.reps > best.reps)) best = { kg: x.kg, reps: x.reps, fecha: s.fecha }; });
+    e.series.filter(contable).forEach(x => { if (best === null || x.kg > best.kg || (x.kg === best.kg && x.reps > best.reps)) best = { kg: x.kg, reps: x.reps, fecha: s.fecha }; });
   }));
   return best;
 }
@@ -502,7 +506,7 @@ function recordatorioFoto() {
   return dias >= 21 ? `<div class="note row"><span class="grow">Hace ${dias} días que no te sacás fotos. Es buen momento para unas nuevas.</span>${ir}</div>` : "";
 }
 function tarjetaRendimiento() {
-  const vol = s => s.ejercicios.reduce((a, e) => a + e.series.reduce((b, x) => b + x.kg * x.reps, 0), 0);
+  const vol = s => s.ejercicios.reduce((a, e) => a + e.series.filter(contable).reduce((b, x) => b + x.kg * x.reps, 0), 0);
   const prom = arr => arr.reduce((a, s) => a + vol(s), 0) / arr.length;
   const filas = [];
   const bien = S.sesiones.filter(s => s.sueno >= 7), mal = S.sesiones.filter(s => s.sueno && s.sueno < 7);
@@ -518,12 +522,16 @@ const ejerciciosHechos = () => borrador.ejercicios
   .map(e => ({
     nombre: e.nombre.trim(), ...(e.tiempo ? { tiempo: true } : {}),
     series: e.series.filter(s => s.ok)
-      .map(s => e.tiempo ? { kg: num(s.kg) || 0, reps: 0, seg: Math.round(num(s.reps) || 0) } : { kg: num(s.kg) || 0, reps: Math.round(num(s.reps) || 0) })
+      .map(s => ({ ...(e.tiempo ? { kg: num(s.kg) || 0, reps: 0, seg: Math.round(num(s.reps) || 0) } : { kg: num(s.kg) || 0, reps: Math.round(num(s.reps) || 0) }), ...(s.tipo ? { tipo: s.tipo } : {}) }))
       .filter(s => s.reps > 0 || s.seg > 0)
   }))
   .filter(e => e.series.length);
 const resumenSeries = series => {
   if (!series.length) return "";
+  if (series.some(x => x.tipo)) {
+    const base = series.filter(x => !x.tipo), nA = series.filter(x => x.tipo === "aprox").length, nD = series.filter(x => x.tipo === "drop").length;
+    return [base.length ? resumenSeries(base) : "", nD ? `+ ${nD} drop${nD > 1 ? "s" : ""}` : "", nA ? `(${nA} de aproximación)` : ""].filter(Boolean).join(" ");
+  }
   if (series.some(x => x.seg)) {
     const kgs = [...new Set(series.map(x => x.kg))], segs = [...new Set(series.map(x => x.seg))];
     if (segs.length === 1 && kgs.length === 1) return `${series.length} × ${fmtSeg(segs[0])}${kgs[0] ? ` · ${fmtKg(kgs[0])} kg` : ""}`;
@@ -771,16 +779,17 @@ function vistaSesion() {
     ${d.ejercicios.map((e, i) => {
       const u = ultimaVez(e.nombre), b = e.tiempo ? mejorTiempo(e.nombre) : mejor(e.nombre);
       return `<div class="ex">
-        <div class="ex-head"><h3>${esc(e.nombre)}</h3>${e.tiempo ? `<span class="pill">Por tiempo</span>` : `<button class="ghost small" data-act="calentar" data-e="${i}">Calentar</button>`}</div>
+        <div class="ex-head"><h3>${esc(e.nombre)}</h3>${e.tiempo ? `<span class="pill">Por tiempo</span>` : `<button class="ghost small" data-act="aprox" data-e="${i}">${e.series.some(x => x.tipo === "aprox") ? "Quitar aproximación" : "Aproximación"}</button>`}</div>
         <p class="small muted">${u ? `Última vez (${fmtFecha(u.fecha)}): ${resumenSeries(u.series)}` : "Primera vez con este ejercicio"}${b ? ` · Récord ${e.tiempo ? fmtSeg(b.seg) : fmtKg(b.kg) + " kg"}` : ""}</p>
         ${e.sube ? `<p class="small"><span class="pill good">Subí a ${fmtKg(e.sube)} kg</span> La última vez completaste todas las repeticiones.</p>` : ""}
         ${notaHtml(e.nombre)}
         <div class="set-h"><span>#</span><span>${e.tiempo ? "kg (opc.)" : "kg"}</span><span>${e.tiempo ? "seg" : "reps"}</span><span></span></div>
-        ${e.series.map((s, j) => `<div class="set ${s.ok ? "ok" : ""}"><span class="n">${j + 1}</span>
+        ${e.series.map((s, j) => `<div class="set ${s.ok ? "ok" : ""} ${s.tipo || ""}"><span class="n">${etiquetaSerie(e, j)}</span>
           <input id="kg-${i}-${j}" inputmode="decimal" data-e="${i}" data-s="${j}" data-f="kg" value="${esc(s.kg)}" placeholder="${esc(s.phKg)}" aria-label="Kilos serie ${j + 1}">
           <input id="rp-${i}-${j}" inputmode="numeric" data-e="${i}" data-s="${j}" data-f="reps" value="${esc(s.reps)}" placeholder="${esc(s.phReps)}" aria-label="${e.tiempo ? "Segundos" : "Repeticiones"} serie ${j + 1}">
           <button data-act="okSerie" data-e="${i}" data-s="${j}" aria-label="Marcar serie ${j + 1} como hecha">✓</button></div>`).join("")}
-        <div class="row" style="gap:0"><button class="ghost small" data-act="masSerie" data-e="${i}">+ Serie</button>${e.tiempo ? `<button class="ghost small" data-act="crono" data-e="${i}">Cronómetro</button>` : `<button class="ghost small" data-act="discos" data-e="${i}">Discos</button>`}<button class="ghost small" data-act="ajustesEj" data-ej="${esc(e.nombre)}">Ajustes</button><button class="ghost small" data-act="quitarEj" data-e="${i}" aria-label="Quitar ${esc(e.nombre)}">Quitar</button></div>
+        ${e.series.some(x => x.tipo) ? `<p class="small muted">${e.series.some(x => x.tipo === "aprox") ? "A = aproximación: no cuenta para récords ni para el conteo de series. " : ""}${e.series.some(x => x.tipo === "drop") ? "D = drop set: al fallo y sin descanso entre medio." : ""}</p>` : ""}
+        <div class="row" style="gap:0"><button class="ghost small" data-act="masSerie" data-e="${i}">+ Serie</button>${e.tiempo ? `<button class="ghost small" data-act="crono" data-e="${i}">Cronómetro</button>` : `<button class="ghost small" data-act="drop" data-e="${i}">${e.series.some(x => x.tipo === "drop") ? "Quitar drops" : "Drop set"}</button><button class="ghost small" data-act="discos" data-e="${i}">Discos</button>`}<button class="ghost small" data-act="ajustesEj" data-ej="${esc(e.nombre)}">Ajustes</button><button class="ghost small" data-act="quitarEj" data-e="${i}" aria-label="Quitar ${esc(e.nombre)}">Quitar</button></div>
       </div>`;
     }).join("") || `<p class="small muted">Agregá el primer ejercicio.</p>`}
   </section>
@@ -851,23 +860,23 @@ function pesoEn(fecha) { let r = null; S.pesos.forEach(p => { if (p.fecha <= fec
 /* ---------- acciones ---------- */
 function guardarBorrador() { if (borrador) ls.set("sesionActiva", borrador); else ls.del("sesionActiva"); }
 function nuevaSerie(nombre, i, repsDef) {
-  const u = ultimaVez(nombre), s = u?.series[i] || u?.series.at(-1);
+  const u = ultimaVez(nombre), us = u ? u.series.filter(x => !x.tipo) : [], s = us[i] || us.at(-1);
   return { kg: "", reps: "", ok: false, phKg: s ? fmtKg(s.kg) : "", phReps: s ? String(s.seg || s.reps) : (repsDef ? String(repsDef) : "") };
 }
 function ejercicioBorrador(nombre, nSeries, reps) {
-  const u = ultimaVez(nombre), n = nSeries || u?.series.length || 3;
+  const u = ultimaVez(nombre), us = u ? u.series.filter(x => !x.tipo) : [], n = nSeries || us.length || 3;
   const e = { nombre, reps, series: Array.from({ length: n }, (_, i) => nuevaSerie(nombre, i, reps)) };
   if (infoEj(nombre).tiempo) { e.tiempo = true; e.series.forEach(x => { if (x.phKg === "0") x.phKg = ""; }); return e; }
-  if (u && reps && u.series.length >= n && u.series.every(s => s.reps >= reps)) {
-    const top = Math.max(...u.series.map(s => s.kg));
+  if (us.length && reps && us.length >= n && us.every(s => s.reps >= reps)) {
+    const top = Math.max(...us.map(s => s.kg));
     if (top > 0) { e.sube = top + 2.5; e.series.forEach(s => s.phKg = fmtKg(e.sube)); }
   }
   return e;
 }
 
 /* temporizador de descanso y pantalla encendida */
-function iniciarDescanso() {
-  const seg = S.cfg.descanso ?? 90; if (!seg) return;
+function iniciarDescanso(forzado) {
+  const seg = forzado ?? S.cfg.descanso ?? 90; if (!seg) return;
   descanso = { fin: Date.now() + seg * 1000, sonado: false };
   try { actx ||= new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.(); } catch {}
   clearInterval(restId); restId = setInterval(dibujarDescanso, 250); dibujarDescanso();
@@ -907,7 +916,7 @@ function dibujarResumen() {
   const ses = S.sesiones.filter(s => s.fecha.startsWith(m));
   const dias = new Set(ses.map(s => s.fecha)).size;
   let vol = 0, series = 0;
-  ses.forEach(s => s.ejercicios.forEach(e => e.series.forEach(x => { series++; vol += x.kg * x.reps; })));
+  ses.forEach(s => s.ejercicios.forEach(e => e.series.filter(contable).forEach(x => { series++; vol += x.kg * x.reps; })));
   const prs = ses.flatMap(s => (s.prs || []).map(p => ({ ...p, fecha: s.fecha })));
   const ps = S.pesos.filter(p => p.fecha.startsWith(m)), fs = S.fotos.filter(f => f.fecha.startsWith(m));
   let par = null;
@@ -944,6 +953,8 @@ const A = {
         <div class="grid2"><label class="f">Peso meta (kg)<input id="oPeso" inputmode="decimal" value="${S.cfg.pesoMeta ? fmtKg(S.cfg.pesoMeta) : ""}" placeholder="Opcional"></label>
         <label class="f">Días de gym por semana<select id="oDias">${[1, 2, 3, 4, 5, 6, 7].map(n => `<option ${n === (S.cfg.diasSemana || 3) ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>
         <label class="f">Descanso entre series<select id="oDesc">${[[0, "Sin temporizador"], [60, "1 min"], [90, "1 min 30 s"], [120, "2 min"], [180, "3 min"]].map(([v, t]) => `<option value="${v}" ${v === (S.cfg.descanso ?? 90) ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <div class="grid2"><label class="f">Drop set: cuánto bajar<select id="oDropPct">${[10, 15, 20, 25, 30].map(v => `<option value="${v}" ${v === (S.cfg.dropPct ?? 20) ? "selected" : ""}>${v}% por drop</option>`).join("")}</select></label>
+          <label class="f">Cantidad de drops<select id="oDropN">${[1, 2, 3].map(v => `<option value="${v}" ${v === (S.cfg.dropN ?? 2) ? "selected" : ""}>${v}</option>`).join("")}</select></label></div>
         <div style="display:flex;flex-direction:column;gap:8px"><span class="eyebrow">Metas de fuerza</span>
         ${m.map((x, i) => `<div class="erow" style="grid-template-columns:1fr 90px"><input id="oEj${i}" list="dlEj2" placeholder="Ejercicio" value="${esc(x.ejercicio)}" aria-label="Ejercicio ${i + 1}"><input id="oKg${i}" inputmode="decimal" placeholder="kg" value="${x.kg ? fmtKg(x.kg) : ""}" aria-label="Kilos meta ${i + 1}"></div>`).join("")}
         <datalist id="dlEj2">${nombresEjercicios().map(n => `<option value="${esc(n)}">`).join("")}</datalist></div>
@@ -971,17 +982,20 @@ const A = {
       if (num(s.reps) === null || num(s.reps) <= 0) { s.kg = s.kg === s.phKg ? "" : s.kg; toast(e.tiempo ? "Poné los segundos o usá el cronómetro" : "Poné las repeticiones de esta serie"); $(`#rp-${t.dataset.e}-${t.dataset.s}`)?.focus(); return; }
       if (s.kg === "") s.kg = "0";
       s.ok = true;
-      iniciarDescanso();
       const sig = e.series[+t.dataset.s + 1];
-      if (sig && !sig.ok) { if (!sig.phKg || sig.phKg === "") sig.phKg = s.kg; if (!sig.phReps) sig.phReps = s.reps; }
+      if (sig?.tipo === "drop" && !sig.ok) { descanso = null; dibujarDescanso(); toast("Sin descanso: directo al drop"); }
+      else iniciarDescanso(s.tipo === "aprox" ? Math.min(60, S.cfg.descanso ?? 90) : undefined);
+      if (sig && !sig.ok && (sig.tipo || "") === (s.tipo || "")) { if (!sig.phKg || sig.phKg === "") sig.phKg = s.kg; if (!sig.phReps) sig.phReps = s.reps; }
     } else s.ok = false;
     guardarBorrador(); render();
   },
   masSerie(t) {
-    const e = borrador.ejercicios[+t.dataset.e], last = e.series.at(-1);
-    const s = nuevaSerie(e.nombre, e.series.length, e.reps);
+    const e = borrador.ejercicios[+t.dataset.e], normales = e.series.filter(x => !x.tipo), last = normales.at(-1);
+    const s = nuevaSerie(e.nombre, normales.length, e.reps);
     if (last) { s.phKg = last.kg || last.phKg; s.phReps = last.reps || last.phReps; }
-    e.series.push(s); guardarBorrador(); render();
+    const iDrop = e.series.findIndex(x => x.tipo === "drop");
+    if (iDrop >= 0) e.series.splice(iDrop, 0, s); else e.series.push(s);
+    guardarBorrador(); render();
   },
   quitarEj(t) { borrador.ejercicios.splice(+t.dataset.e, 1); guardarBorrador(); render(); },
   descartar() { borrador = null; guardarBorrador(); descanso = null; dibujarDescanso(); crono = null; dibujarCrono(); soltarPantalla(); render(); toast("Entrenamiento descartado"); },
@@ -1026,7 +1040,8 @@ const A = {
         return;
       }
       const prev = mejor(e.nombre); if (!prev) return;
-      const top = e.series.reduce((a, b) => (b.kg > a.kg || (b.kg === a.kg && b.reps > a.reps)) ? b : a);
+      const trabajo = e.series.filter(x => !x.tipo); if (!trabajo.length) return;
+      const top = trabajo.reduce((a, b) => (b.kg > a.kg || (b.kg === a.kg && b.reps > a.reps)) ? b : a);
       if (top.kg > prev.kg) prs.push({ ejercicio: e.nombre, kg: top.kg, reps: top.reps });
     });
     const ses = { id: nid(), fecha: ymd(new Date(d.inicio)), inicio: d.inicio, rutinaId: d.rutinaId, nombre: d.nombre, duracionMin: Math.max(1, Math.round((Date.now() - d.inicio) / 60000)), ejercicios, prs,
@@ -1119,7 +1134,7 @@ document.addEventListener("submit", async e => {
   }
   if (f.id === "fObj") {
     const metas = [0, 1, 2].map(i => ({ ejercicio: $(`#oEj${i}`).value.trim(), kg: num($(`#oKg${i}`).value) })).filter(m => m.ejercicio && m.kg);
-    S.cfg = { ...S.cfg, pesoMeta: num($("#oPeso").value), diasSemana: +$("#oDias").value, descanso: +$("#oDesc").value, metas };
+    S.cfg = { ...S.cfg, pesoMeta: num($("#oPeso").value), diasSemana: +$("#oDias").value, descanso: +$("#oDesc").value, dropPct: +$("#oDropPct").value, dropN: +$("#oDropN").value, metas };
     cerrarSheet(); render(); await guardarCfg(); toast("Objetivos guardados");
   }
   if (f.id === "fRut") {
@@ -1707,7 +1722,7 @@ function tarjetaMusculos() {
   if (!S.sesiones.length) return "";
   const desde = ymd(new Date(Date.now() - 6 * 864e5));
   const cuenta = Object.fromEntries(Object.keys(GRUPOS).map(k => [k, 0]));
-  S.sesiones.filter(s => s.fecha >= desde).forEach(s => s.ejercicios.forEach(e => { cuenta[infoEj(e.nombre).grupo] += e.series.length; }));
+  S.sesiones.filter(s => s.fecha >= desde).forEach(s => s.ejercicios.forEach(e => { cuenta[infoEj(e.nombre).grupo] += e.series.filter(contable).length; }));
   const filas = Object.keys(GRUPOS).filter(k => k !== "otro" || cuenta.otro);
   const total = filas.reduce((a, k) => a + cuenta[k], 0);
   const sinSeries = filas.filter(k => k !== "otro" && !cuenta[k]).map(k => GRUPOS[k]);
@@ -1781,6 +1796,57 @@ Object.assign(A, {
       guardarBorrador();
     }
     render(); toast("Ejercicio guardado");
+  }
+});
+
+
+/* ---------- series de aproximación y drop sets ---------- */
+function contable(x) { return x.tipo !== "aprox"; }
+function etiquetaSerie(e, j) {
+  const t = e.series[j].tipo, n = e.series.slice(0, j + 1).filter(x => (x.tipo || "") === (t || "")).length;
+  return t === "aprox" ? "A" + n : t === "drop" ? "D" + n : String(n);
+}
+// 50 % × 8, 70 % × 5 y 85 % × 2 del peso de trabajo, redondeado a lo que se puede cargar
+function calcularAprox(obj) {
+  const paso = obj >= 20 ? 2.5 : 1, red = x => Math.round(x / paso) * paso, plan = [];
+  for (const [p, r] of [[0.5, 8], [0.7, 5], [0.85, 2]]) {
+    const k = red(obj * p);
+    if (k > 0 && k < obj && (!plan.length || k > plan.at(-1)[0])) plan.push([k, r]);
+  }
+  return plan;
+}
+function calcularDrops(base, pct, n) {
+  const out = []; let k = base;
+  for (let i = 0; i < n; i++) {
+    const paso = k >= 20 ? 2.5 : 1, nk = Math.round(k * (1 - pct / 100) / paso) * paso;
+    if (nk <= 0 || nk >= k) break;
+    out.push(nk); k = nk;
+  }
+  return out;
+}
+Object.assign(A, {
+  aprox(t) {
+    const e = borrador.ejercicios[+t.dataset.e];
+    if (e.series.some(x => x.tipo === "aprox")) { e.series = e.series.filter(x => x.tipo !== "aprox"); guardarBorrador(); render(); return; }
+    const primera = e.series.find(x => !x.tipo), obj = num(primera?.kg || primera?.phKg || "");
+    if (!obj) { toast("Poné primero el peso de tu primera serie de trabajo."); $(`#kg-${t.dataset.e}-${e.series.indexOf(primera)}`)?.focus(); return; }
+    const plan = calcularAprox(obj);
+    if (!plan.length) { toast("Con ese peso no hace falta aproximación."); return; }
+    e.series = [...plan.map(([kg, reps]) => ({ tipo: "aprox", kg: "", reps: "", ok: false, phKg: fmtKg(kg), phReps: String(reps) })), ...e.series];
+    guardarBorrador(); render();
+    toast(`Aproximación para ${fmtKg(obj)} kg: ${plan.map(([kg, r]) => `${fmtKg(kg)}×${r}`).join(", ")}`);
+  },
+  drop(t) {
+    const e = borrador.ejercicios[+t.dataset.e];
+    if (e.series.some(x => x.tipo === "drop")) { e.series = e.series.filter(x => x.tipo !== "drop"); guardarBorrador(); render(); return; }
+    const ult = e.series.filter(x => !x.tipo).reverse().find(x => num(x.kg || x.phKg || "")), base = num(ult?.kg || ult?.phKg || "");
+    if (!base) { toast("Poné primero el peso de tu última serie."); return; }
+    const kgs = calcularDrops(base, S.cfg.dropPct ?? 20, S.cfg.dropN ?? 2);
+    if (!kgs.length) { toast("Con ese peso no se puede bajar más."); return; }
+    const reps = ult.reps || ult.phReps || "";
+    e.series.push(...kgs.map(kg => ({ tipo: "drop", kg: "", reps: "", ok: false, phKg: fmtKg(kg), phReps: String(reps) })));
+    guardarBorrador(); render();
+    toast(`Drops: ${fmtKg(base)} → ${kgs.map(fmtKg).join(" → ")} kg, sin descanso entre medio`);
   }
 });
 
