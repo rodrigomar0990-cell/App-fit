@@ -29,7 +29,7 @@ async function api(req, env, url) {
 
   if (p === "/api/login" && method === "POST") {
     const { password } = await req.json().catch(() => ({}));
-    if (typeof password !== "string" || !iguales(password.trim().toLowerCase(), env.APP_PASSWORD.toLowerCase())) {
+    if (typeof password !== "string" || !iguales(password.trim(), env.APP_PASSWORD)) {
       await new Promise(r => setTimeout(r, 800));
       return json({ error: "Contraseña incorrecta" }, 401);
     }
