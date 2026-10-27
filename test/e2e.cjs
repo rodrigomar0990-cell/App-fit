@@ -1,5 +1,4 @@
-// Prueba de punta a punta contra una copia local: npx wrangler dev --local, después
-// NODE_PATH=$(npm root -g) node test/e2e.cjs http://localhost:8787 <carpeta-capturas> <contraseña-de-.dev.vars>
+// Prueba en navegador contra una copia local con una cuenta admin/prueba123 (ver README).
 const { chromium } = require("playwright");
 const U = process.argv[2] || "http://localhost:8787", OUT = process.argv[3], PASS = process.argv[4] || "prueba123";
 const paso = (n) => console.log("✓", n);
@@ -13,7 +12,7 @@ const paso = (n) => console.log("✓", n);
   const toast = async (txt) => page.waitForSelector(`.toast:has-text("${txt}")`, { timeout: 8000 });
 
   await page.goto(U); await page.waitForSelector("#lPass");
-  await page.fill("#lPass", PASS); await page.click("#fLogin button");
+  await page.fill("#lUser", "admin"); await page.fill("#lPass", PASS); await page.click("#fLogin button");
   await page.waitForSelector("text=Racha"); paso("login");
 
   // rutinas y plan

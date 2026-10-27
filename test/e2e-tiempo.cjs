@@ -1,4 +1,4 @@
-// Ejercicios por tiempo y series por músculo. Mismo uso que test/e2e.cjs.
+// Prueba en navegador contra una copia local con una cuenta admin/prueba123 (ver README).
 const { chromium } = require("playwright");
 const U = process.argv[2] || "http://localhost:8787", OUT = process.argv[3], PASS = process.argv[4] || "prueba123";
 const paso = (n) => console.log("✓", n);
@@ -12,7 +12,7 @@ const paso = (n) => console.log("✓", n);
   const toast = async (txt) => page.waitForSelector(`.toast:has-text("${txt}")`, { timeout: 8000 });
 
   await page.goto(U); await page.waitForSelector("#lPass");
-  await page.fill("#lPass", PASS); await page.click("#fLogin button"); await page.waitForSelector("text=Racha");
+  await page.fill("#lUser", "admin"); await page.fill("#lPass", PASS); await page.click("#fLogin button"); await page.waitForSelector("text=Racha");
 
   await page.click("nav button[data-v=gym]"); await page.click("text=Crear rutina");
   await page.fill("#rNom", "Día B"); await page.fill("#rEj0", "Sentadilla"); await page.fill("#rSe0", "1"); await page.fill("#rRe0", "8");

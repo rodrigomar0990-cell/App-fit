@@ -1,4 +1,4 @@
-// Series de aproximación y drop sets. Mismo uso que test/e2e.cjs.
+// Prueba en navegador contra una copia local con una cuenta admin/prueba123 (ver README).
 const { chromium } = require("playwright");
 const U = process.argv[2] || "http://localhost:8787", OUT = process.argv[3], PASS = process.argv[4] || "prueba123";
 const paso = (n) => console.log("✓", n);
@@ -13,7 +13,7 @@ const paso = (n) => console.log("✓", n);
   const n = async () => (await page.$$eval(".ex .set .n", els => els.map(e => e.textContent))).join(" ");
 
   await page.goto(U); await page.waitForSelector("#lPass");
-  await page.fill("#lPass", PASS); await page.click("#fLogin button"); await page.waitForSelector("text=Racha");
+  await page.fill("#lUser", "admin"); await page.fill("#lPass", PASS); await page.click("#fLogin button"); await page.waitForSelector("text=Racha");
   await page.click("nav button[data-v=gym]"); await page.click("text=Crear rutina");
   await page.fill("#rNom", "Pierna"); await page.fill("#rEj0", "Sentadilla"); await page.fill("#rSe0", "3"); await page.fill("#rRe0", "8");
   await page.click("#fRut button[type=submit]"); await toast("Rutina guardada");

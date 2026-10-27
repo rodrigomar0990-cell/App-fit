@@ -650,7 +650,7 @@ V.inicio = () => {
   }).join("") : `<p class="small muted">Poné metas de peso y de ejercicios, por ejemplo "80 kg en sentadilla", y acá vas a ver cuánto te falta.</p>`;
   const prs = S.sesiones.flatMap(s => (s.prs || []).map(x => ({ ...x, fecha: s.fecha }))).slice(-4).reverse();
   return `
-  <header class="top"><div><p class="sub">${new Date().toLocaleDateString("es-UY", { weekday: "long", day: "numeric", month: "long" })}</p><h1>Fierro <span style="color:var(--accent)">y</span> Balanza</h1></div></header>
+  <header class="top"><div><p class="sub">${yo ? "Hola, " + esc(yo.nombre.split(" ")[0]) + " · " : ""}${new Date().toLocaleDateString("es-UY", { weekday: "long", day: "numeric", month: "long" })}</p><h1>Fierro <span style="color:var(--accent)">y</span> Balanza</h1></div></header>
   ${banner()}${recordatorioFoto()}
   <section class="card">
     <div class="card-head"><span class="eyebrow">Racha</span><span class="pill">${r.esta}/${r.meta} esta semana</span></div>
@@ -1180,6 +1180,7 @@ async function subirFoto(file) {
 
 /* ---------- arranque ---------- */
 async function cargar() {
+  cambiarDeUsuario(await apiFetch("/api/me"));
   await vaciarCola();
   const t = await apiFetch("/api/todo");
   COLLS.forEach(c => S[c] = t[c] || []);
@@ -1196,34 +1197,151 @@ async function iniciar() {
   if (borrador) mantenerPantalla();
 }
 
-/* ---------- inicio de sesión ---------- */
+/* ---------- cuentas: entrar, crear cuenta y datos separados por persona ---------- */
+let yo = null, modoLogin = "entrar", invitacion = null, cargandoInv = false;
+const CFG_INICIAL = JSON.parse(JSON.stringify(S.cfg));
+let invitacionUrl = (location.hash.match(/^#invitacion=([a-z0-9-]+)$/i) || [])[1] || "";
+if (invitacionUrl) { modoLogin = "crear"; history.replaceState(null, "", location.pathname); }
+addEventListener("hashchange", () => {
+  const c = (location.hash.match(/^#invitacion=([a-z0-9-]+)$/i) || [])[1];
+  if (!c) return;
+  history.replaceState(null, "", location.pathname);
+  if (yo) { toast("Ya tenés una cuenta abierta. Para crear otra, primero cerrá sesión."); return; }
+  invitacionUrl = c; modoLogin = "crear"; estado = "login"; render();
+});
+const POST = (path, datos, method = "POST") => apiFetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos || {}) });
+
+// Cada persona ve solo lo suyo, también en el celular: si entra otra cuenta se borra la copia local
+function limpiarDatosLocales() {
+  ["copia", "cola", "sesionActiva"].forEach(k => ls.del(k));
+  borrador = null; COLLS.forEach(c => S[c] = []); S.cfg = JSON.parse(JSON.stringify(CFG_INICIAL));
+}
+function cambiarDeUsuario(u) {
+  if (ls.get("usuario", null) !== u.usuario) limpiarDatosLocales();
+  ls.set("usuario", u.usuario); ls.set("ultimoUsuario", u.usuario); yo = u;
+}
+async function salir(mensaje) {
+  try { const sub = await swReg?.pushManager.getSubscription(); if (sub) { await POST("/api/push", { endpoint: sub.endpoint }, "DELETE").catch(() => {}); await sub.unsubscribe(); } } catch {}
+  limpiarDatosLocales(); ls.del("usuario");
+  yo = null; invitacion = null; pushActivo = false; modoLogin = "entrar"; estado = "login";
+  cerrarSheet(); render(); if (mensaje) toast(mensaje);
+}
+
 const V_login = () => `
-  <header class="top"><div><p class="sub">Tu progreso en el gym y la balanza</p><h1>Fierro y Balanza</h1></div></header>
+  <header class="top"><div><p class="sub">Tu progreso en el gym y la balanza</p><h1>Fierro <span style="color:var(--accent)">y</span> Balanza</h1></div></header>
+  ${modoLogin === "entrar" ? `
   <section class="card">
     <h2>Entrar</h2>
     <form id="fLogin" style="display:flex;flex-direction:column;gap:12px">
+      <label class="f">Usuario<input id="lUser" value="${esc(ls.get("ultimoUsuario", ""))}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
       <label class="f">Contraseña<input id="lPass" type="password" autocomplete="current-password" required></label>
       <button class="primary" type="submit">Entrar</button>
-      <p class="small muted">Se pide una sola vez en cada dispositivo.</p>
     </form>
-  </section>`;
+  </section>
+  <section class="card"><p class="small muted">¿Te invitaron? Creá tu cuenta con el código que te pasaron.</p><button data-act="modoLogin" data-v="crear">Crear cuenta</button></section>` : `
+  <section class="card">
+    <h2>Crear cuenta</h2>
+    <form id="fRegistro" style="display:flex;flex-direction:column;gap:12px">
+      <label class="f">Tu nombre<input id="rgNombre" autocomplete="given-name" maxlength="40" required></label>
+      <label class="f">Usuario<input id="rgUser" placeholder="ej.: juan.perez" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" required></label>
+      <p class="small muted">Con el usuario entrás a la app. Usá minúsculas y sin espacios.</p>
+      <label class="f">Contraseña<input id="rgPass" type="password" autocomplete="new-password" minlength="6" required></label>
+      <label class="f">Código de invitación<input id="rgCodigo" value="${esc(invitacionUrl)}" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
+      <button class="primary" type="submit">Crear cuenta</button>
+      <p class="small muted">Tus datos y fotos son solo tuyos: ni quien te invitó ni los demás pueden verlos.</p>
+    </form>
+  </section>
+  <section class="card"><button data-act="modoLogin" data-v="entrar">Ya tengo cuenta</button></section>`}`;
 const renderBase = render;
 render = function () {
   const nav = document.querySelector("nav.tabs");
-  if (estado === "login") { nav.hidden = true; $("#app").innerHTML = V_login(); setTimeout(() => $("#lPass")?.focus(), 30); return; }
+  if (estado === "login") {
+    nav.hidden = true; $("#app").innerHTML = V_login();
+    setTimeout(() => (modoLogin === "entrar" ? ($("#lUser")?.value ? $("#lPass") : $("#lUser")) : $("#rgNombre"))?.focus(), 30);
+    return;
+  }
   nav.hidden = false; renderBase();
 };
 document.addEventListener("submit", async e => {
-  if (e.target.id !== "fLogin") return;
+  const id = e.target.id;
+  if (id !== "fLogin" && id !== "fRegistro") return;
   e.preventDefault();
-  const btn = e.target.querySelector("button"); btn.disabled = true; btn.textContent = "Entrando…";
+  const btn = e.target.querySelector("button[type=submit]"), txt = btn.textContent;
+  btn.disabled = true; btn.textContent = "Un momento…";
   try {
-    await apiFetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: $("#lPass").value }) });
-    estado = "cargando"; render(); await cargar(); estado = "ok"; render();
+    if (id === "fLogin") await POST("/api/login", { usuario: $("#lUser").value, password: $("#lPass").value });
+    else await POST("/api/registro", { nombre: $("#rgNombre").value, usuario: $("#rgUser").value, password: $("#rgPass").value, codigo: $("#rgCodigo").value });
+    estado = "cargando"; render(); await cargar(); estado = "ok"; vista = "inicio"; render();
+    if (id === "fRegistro") toast(`¡Listo, ${yo.nombre}! Tu cuenta está creada. Empezá anotando tu peso o armando una rutina.`);
   } catch (err) {
-    btn.disabled = false; btn.textContent = "Entrar";
-    toast(err?.code === 401 ? "Contraseña incorrecta." : "No me pude conectar. Revisá tu internet.");
+    btn.disabled = false; btn.textContent = txt;
+    toast(err?.code === 401 ? "Usuario o contraseña incorrectos." : err?.message || "No me pude conectar. Revisá tu internet.");
   }
+});
+
+function cargarInvitacion() {
+  if (!yo?.admin || invitacion || cargandoInv) return;
+  cargandoInv = true;
+  apiFetch("/api/invitacion").then(r => { invitacion = r; render(); }).catch(() => {}).finally(() => { cargandoInv = false; });
+}
+const linkInvitacion = () => `${location.origin}/#invitacion=${invitacion.codigo}`;
+const mensajeInvitacion = () => `Te invito a Fierro y Balanza, la app que uso para anotar mi peso y mis entrenamientos 💪\nEntrá a este link y creá tu cuenta (el código ya viene puesto): ${linkInvitacion()}\nDespués agregala a la pantalla de inicio del celular.`;
+function tarjetaCuenta() {
+  if (!yo) return "";
+  cargarInvitacion();
+  return `${yo.admin ? `<section class="card"><span class="eyebrow">Invitar amigos</span>
+      <p class="small muted">Mandales este link. Cada uno crea su cuenta y sus datos quedan separados: nadie ve lo de los demás, tampoco vos.</p>
+      ${invitacion ? `<p class="small">Código: <b style="color:var(--accent)">${esc(invitacion.codigo)}</b> · ${invitacion.usuarios} ${invitacion.usuarios === 1 ? "persona usa" : "personas usan"} la app</p>
+      <div class="row"><button class="primary grow" data-act="invCopiar">Copiar invitación</button>${navigator.share ? `<button class="grow" data-act="invCompartir">Compartir</button>` : ""}</div>
+      <button class="danger small" data-act="invNuevo" data-confirm>Cambiar código (el anterior deja de servir)</button>` : `<p class="small muted">Cargando el código…</p>`}</section>` : ""}
+    <section class="card"><span class="eyebrow">Tu cuenta</span>
+      <p><b>${esc(yo.nombre)}</b> <span class="muted small">· usuario ${esc(yo.usuario)}</span></p>
+      <div class="row"><button class="grow" data-act="cambiarPass">Cambiar contraseña</button><button class="grow" data-act="logout" ${cola.get().length ? "data-confirm" : ""}>Cerrar sesión</button></div>
+      ${cola.get().length ? `<p class="small muted">Tenés cambios sin subir: si cerrás sesión ahora se pierden.</p>` : ""}
+      ${yo.admin ? "" : `<button class="danger small" data-act="borrarCuenta">Borrar mi cuenta</button>`}</section>`;
+}
+Object.assign(A, {
+  modoLogin(t) { modoLogin = t.dataset.v; render(); },
+  async invCopiar() {
+    try { await navigator.clipboard.writeText(mensajeInvitacion()); toast("Invitación copiada. Pegala en WhatsApp."); }
+    catch { sheet(`<h2>Invitación</h2><textarea rows="6" readonly>${esc(mensajeInvitacion())}</textarea><p class="small muted">Copiá el texto y mandalo.</p><button data-act="cerrar">Cerrar</button>`); }
+  },
+  async invCompartir() {
+    try { await navigator.share({ title: "Fierro y Balanza", text: mensajeInvitacion() }); }
+    catch (e) { if (e?.name !== "AbortError") toast("No se pudo compartir. Usá Copiar invitación."); }
+  },
+  async invNuevo() {
+    try { const r = await POST("/api/invitacion"); invitacion = { ...invitacion, codigo: r.codigo }; render(); toast("Código nuevo listo. El anterior ya no sirve."); }
+    catch { toast("No se pudo cambiar el código."); }
+  },
+  cambiarPass() {
+    sheet(`<h2>Cambiar contraseña</h2>
+      <form id="fPass" style="display:flex;flex-direction:column;gap:12px">
+        <label class="f">Contraseña actual<input id="pwActual" type="password" autocomplete="current-password" required></label>
+        <label class="f">Contraseña nueva<input id="pwNueva" type="password" autocomplete="new-password" minlength="6" required></label>
+        <label class="f">Repetí la nueva<input id="pwRepe" type="password" autocomplete="new-password" minlength="6" required></label>
+        <div class="row"><button type="button" class="grow" data-act="cerrar">Cancelar</button><button class="primary grow" type="submit">Guardar</button></div>
+      </form>`);
+  },
+  async logout() { await POST("/api/logout").catch(() => {}); salir("Cerraste sesión."); },
+  borrarCuenta() {
+    sheet(`<h2>Borrar mi cuenta</h2>
+      <p class="small">Se borran para siempre tus pesos, fotos, rutinas, entrenamientos y notificaciones. No se puede deshacer.</p>
+      <p class="small muted">Si querés guardar algo, primero tocá "Descargar copia".</p>
+      <label class="f">Tu contraseña<input id="bcPass" type="password" autocomplete="current-password"></label>
+      <div class="row"><button class="grow" data-act="cerrar">Cancelar</button><button class="danger grow" data-act="confirmarBorrarCuenta" data-confirm>Borrar todo</button></div>`);
+  },
+  async confirmarBorrarCuenta() {
+    try { await POST("/api/cuenta", { password: $("#bcPass").value }, "DELETE"); salir("Tu cuenta y tus datos se borraron."); }
+    catch (e) { toast(e?.message || "No se pudo borrar la cuenta."); }
+  }
+});
+document.addEventListener("submit", async e => {
+  if (e.target.id !== "fPass") return;
+  e.preventDefault();
+  if ($("#pwNueva").value !== $("#pwRepe").value) { toast("Las contraseñas nuevas no coinciden."); return; }
+  try { await POST("/api/password", { actual: $("#pwActual").value, nueva: $("#pwNueva").value }); cerrarSheet(); toast("Contraseña cambiada. Se cerró la sesión en los otros dispositivos."); }
+  catch (err) { toast(err?.message || "No se pudo cambiar la contraseña."); }
 });
 A.reintentar = () => { estado = "cargando"; render(); iniciar(); };
 
@@ -1295,7 +1413,7 @@ A.copia = () => {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   toast("Copia descargada");
 };
-V.inicio = () => inicioBase() + tarjetaNotif() + tarjetaCopia();
+V.inicio = () => inicioBase() + tarjetaNotif() + tarjetaCopia() + tarjetaCuenta();
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").then(async r => { swReg = await navigator.serviceWorker.ready; await estadoPush(); if (vista === "inicio" && estado !== "login") render(); }).catch(() => {});
