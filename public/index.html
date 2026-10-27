@@ -316,8 +316,8 @@ const ls = {
 };
 
 /* ---------- datos ---------- */
-const S = { pesos: [], fotos: [], rutinas: [], sesiones: [], cardio: [], notas: [], cfg: { pesoMeta: null, diasSemana: 3, descanso: 90, metas: [] } };
-const COLLS = ["pesos", "fotos", "rutinas", "sesiones", "cardio", "notas"];
+const S = { pesos: [], fotos: [], rutinas: [], sesiones: [], cardio: [], notas: [], ejercicios: [], cfg: { pesoMeta: null, diasSemana: 3, descanso: 90, metas: [] } };
+const COLLS = ["pesos", "fotos", "rutinas", "sesiones", "cardio", "notas", "ejercicios"];
 let estado = "cargando";
 
 async function apiFetch(path, opts = {}) {
@@ -346,7 +346,7 @@ const sortAll = () => {
 const cola = { get: () => ls.get("cola", []), set: q => ls.set("cola", q) };
 let subiendo = false;
 function guardarCopia() {
-  ls.set("copia", { pesos: S.pesos, sesiones: S.sesiones, rutinas: S.rutinas, fotos: S.fotos, cardio: S.cardio, notas: S.notas, ajustes: { general: S.cfg }, guardada: Date.now() });
+  ls.set("copia", { pesos: S.pesos, sesiones: S.sesiones, rutinas: S.rutinas, fotos: S.fotos, cardio: S.cardio, notas: S.notas, ejercicios: S.ejercicios, ajustes: { general: S.cfg }, guardada: Date.now() });
 }
 async function escribir(op, c, id, data) {
   guardarCopia();
@@ -440,6 +440,17 @@ function mejor(nombre, sesiones = S.sesiones) {
   return best;
 }
 const rm1 = (kg, reps) => reps <= 1 ? kg : kg * (1 + reps / 30);
+function mejorTiempo(nombre) {
+  let best = null;
+  S.sesiones.forEach(s => s.ejercicios.forEach(e => {
+    if (!mismo(e.nombre, nombre)) return;
+    e.series.forEach(x => { if (x.seg && (!best || x.seg > best.seg)) best = { seg: x.seg, kg: x.kg, fecha: s.fecha }; });
+  }));
+  return best;
+}
+const fmtSeg = n => n >= 60 ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")} min` : `${n} s`;
+const fmtMarca = x => x.seg ? `${fmtSeg(x.seg)}${x.kg ? ` · ${fmtKg(x.kg)} kg` : ""}` : `${fmtKg(x.kg)} kg × ${x.reps}`;
+const fmtMarcaCorta = x => x.seg ? fmtSeg(x.seg) : `${fmtKg(x.kg)} kg`;
 function promediosSemanales() {
   const g = {};
   S.pesos.forEach(p => { const k = ymd(lunes(parseYmd(p.fecha))); (g[k] ||= []).push(p.kg); });
@@ -504,10 +515,20 @@ function tarjetaRendimiento() {
     ${filas.map(([t, v, n]) => `<div class="goal"><div class="row small"><span>${t} <span class="muted">(${n})</span></span><b>${fmtKg(v)} kg</b></div><div class="bar"><i style="width:${v / max * 100}%"></i></div></div>`).join("")}</section>`;
 }
 const ejerciciosHechos = () => borrador.ejercicios
-  .map(e => ({ nombre: e.nombre.trim(), series: e.series.filter(s => s.ok).map(s => ({ kg: num(s.kg) || 0, reps: Math.round(num(s.reps) || 0) })).filter(s => s.reps > 0) }))
+  .map(e => ({
+    nombre: e.nombre.trim(), ...(e.tiempo ? { tiempo: true } : {}),
+    series: e.series.filter(s => s.ok)
+      .map(s => e.tiempo ? { kg: num(s.kg) || 0, reps: 0, seg: Math.round(num(s.reps) || 0) } : { kg: num(s.kg) || 0, reps: Math.round(num(s.reps) || 0) })
+      .filter(s => s.reps > 0 || s.seg > 0)
+  }))
   .filter(e => e.series.length);
 const resumenSeries = series => {
   if (!series.length) return "";
+  if (series.some(x => x.seg)) {
+    const kgs = [...new Set(series.map(x => x.kg))], segs = [...new Set(series.map(x => x.seg))];
+    if (segs.length === 1 && kgs.length === 1) return `${series.length} × ${fmtSeg(segs[0])}${kgs[0] ? ` · ${fmtKg(kgs[0])} kg` : ""}`;
+    return series.map(x => fmtSeg(x.seg)).join(", ");
+  }
   const kgs = [...new Set(series.map(x => x.kg))];
   const reps = [...new Set(series.map(x => x.reps))];
   if (kgs.length === 1 && reps.length === 1) return `${series.length} × ${reps[0]} · ${fmtKg(kgs[0])} kg`;
@@ -650,7 +671,7 @@ V.inicio = () => {
   ${(() => { const med = medallas(); return `<section class="card"><div class="card-head"><span class="eyebrow">Medallas</span><span class="pill">${med.filter(m => m.on).length} de ${med.length}</span></div>
     <div class="medals">${med.map(m => m.on ? `<button class="medal on" data-act="compartirMedalla" data-m="${esc(m.m)}" data-t="${esc(m.t)}" aria-label="Compartir medalla ${esc(m.t)}"><span class="m">${esc(m.m)}</span>${esc(m.t)}</button>` : `<div class="medal"><span class="m">${esc(m.m)}</span>${esc(m.t)}</div>`).join("")}</div>
     ${med.some(m => m.on) ? `<p class="small muted">Tocá una medalla ganada para compartirla.</p>` : ""}</section>`; })()}
-  ${prs.length ? `<section class="card"><span class="eyebrow">Últimos récords</span><div class="list">${prs.map(x => `<div class="li"><span class="pill hot">Récord</span><div class="grow"><p><b>${esc(x.ejercicio)}</b></p><p class="small muted">${fmtKg(x.kg)} kg × ${x.reps} · ${fmtFecha(x.fecha)}</p></div><button class="ghost small" data-act="compartirRecord" data-ej="${esc(x.ejercicio)}" data-kg="${x.kg}" data-reps="${x.reps}" data-f="${x.fecha}">Compartir</button></div>`).join("")}</div></section>` : ""}
+  ${prs.length ? `<section class="card"><span class="eyebrow">Últimos récords</span><div class="list">${prs.map(x => `<div class="li"><span class="pill hot">Récord</span><div class="grow"><p><b>${esc(x.ejercicio)}</b></p><p class="small muted">${fmtMarca(x)} · ${fmtFecha(x.fecha)}</p></div><button class="ghost small" data-act="compartirRecord" data-ej="${esc(x.ejercicio)}" data-kg="${x.kg}" data-reps="${x.reps}" data-seg="${x.seg || ""}" data-f="${x.fecha}">Compartir</button></div>`).join("")}</div></section>` : ""}
   `;
 };
 
@@ -696,10 +717,11 @@ V.gym = () => {
   if (borrador) return vistaSesion();
   const nombres = nombresEjercicios();
   if (!ejSel || !nombres.some(n => mismo(n, ejSel))) ejSel = nombres.find(n => mejor(n)) || nombres[0] || null;
+  const porTiempo = !!(ejSel && infoEj(ejSel).tiempo);
   const hist = S.sesiones.filter(s => s.ejercicios.some(e => mismo(e.nombre, ejSel || ""))).map(s => {
-    const e = s.ejercicios.find(e => mismo(e.nombre, ejSel)); return { x: +parseYmd(s.fecha), y: Math.max(...e.series.map(x => x.kg)), e };
+    const e = s.ejercicios.find(e => mismo(e.nombre, ejSel)); return { x: +parseYmd(s.fecha), y: Math.max(...e.series.map(x => porTiempo ? x.seg || 0 : x.kg)), e };
   });
-  const b = ejSel ? mejor(ejSel) : null;
+  const b = ejSel ? (porTiempo ? mejorTiempo(ejSel) : mejor(ejSel)) : null;
   const est = b ? Math.max(...S.sesiones.flatMap(s => s.ejercicios.filter(e => mismo(e.nombre, ejSel)).flatMap(e => e.series.map(x => rm1(x.kg, x.reps))))) : 0;
   const rut = S.rutinas.map(r => {
     const u = [...S.sesiones].reverse().find(s => s.rutinaId === r.id);
@@ -720,11 +742,13 @@ V.gym = () => {
     <div class="card-head"><span class="eyebrow">Progreso por ejercicio</span></div>
     ${nombres.length ? `
       <select id="ejSel" aria-label="Ejercicio">${nombres.map(n => `<option ${mismo(n, ejSel || "") ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
-      ${ejSel ? notaHtml(ejSel) : ""}
-      ${b ? `<div class="grid2"><div class="stat"><span class="num">${fmtKg(b.kg)} kg</span><span class="lbl">mejor marca · ${b.reps} reps · ${fmtFecha(b.fecha)}</span></div><div class="stat"><span class="num">${fmtKg(est)} kg</span><span class="lbl">1RM estimado (máximo a 1 repetición)</span></div></div>` : ""}
-      ${chart(hist, { vacio: "Entrená este ejercicio dos veces y vas a ver cómo sube el peso." })}` :
+      ${ejSel ? `<div class="row small"><span class="pill">${GRUPOS[infoEj(ejSel).grupo]}${porTiempo ? " · por tiempo" : ""}</span><button class="ghost small" data-act="ajustesEj" data-ej="${esc(ejSel)}">Ajustes del ejercicio</button></div>${notaHtml(ejSel)}` : ""}
+      ${b && porTiempo ? `<div class="stat"><span class="num">${fmtSeg(b.seg)}</span><span class="lbl">mejor tiempo${b.kg ? ` con ${fmtKg(b.kg)} kg` : ""} · ${fmtFecha(b.fecha)}</span></div>` : ""}
+      ${b && !porTiempo ? `<div class="grid2"><div class="stat"><span class="num">${fmtKg(b.kg)} kg</span><span class="lbl">mejor marca · ${b.reps} reps · ${fmtFecha(b.fecha)}</span></div><div class="stat"><span class="num">${fmtKg(est)} kg</span><span class="lbl">1RM estimado (máximo a 1 repetición)</span></div></div>` : ""}
+      ${chart(hist, { unit: porTiempo ? "segundos" : "kg", vacio: porTiempo ? "Hacelo dos veces y vas a ver cómo aguantás más." : "Entrená este ejercicio dos veces y vas a ver cómo sube el peso." })}` :
       `<p class="small muted">Cuando registres entrenamientos vas a ver acá el peso máximo de cada ejercicio a lo largo del tiempo.</p>`}
   </section>
+  ${tarjetaMusculos()}
   ${tarjetaCalendario()}
   ${tarjetaRendimiento()}
   <section class="card">
@@ -745,18 +769,18 @@ function vistaSesion() {
     <button class="primary" data-act="terminar">Terminar</button></div>
   <section class="card">
     ${d.ejercicios.map((e, i) => {
-      const u = ultimaVez(e.nombre), b = mejor(e.nombre);
+      const u = ultimaVez(e.nombre), b = e.tiempo ? mejorTiempo(e.nombre) : mejor(e.nombre);
       return `<div class="ex">
-        <div class="ex-head"><h3>${esc(e.nombre)}</h3><button class="ghost small" data-act="calentar" data-e="${i}">Calentar</button></div>
-        <p class="small muted">${u ? `Última vez (${fmtFecha(u.fecha)}): ${resumenSeries(u.series)}` : "Primera vez con este ejercicio"}${b ? ` · Récord ${fmtKg(b.kg)} kg` : ""}</p>
+        <div class="ex-head"><h3>${esc(e.nombre)}</h3>${e.tiempo ? `<span class="pill">Por tiempo</span>` : `<button class="ghost small" data-act="calentar" data-e="${i}">Calentar</button>`}</div>
+        <p class="small muted">${u ? `Última vez (${fmtFecha(u.fecha)}): ${resumenSeries(u.series)}` : "Primera vez con este ejercicio"}${b ? ` · Récord ${e.tiempo ? fmtSeg(b.seg) : fmtKg(b.kg) + " kg"}` : ""}</p>
         ${e.sube ? `<p class="small"><span class="pill good">Subí a ${fmtKg(e.sube)} kg</span> La última vez completaste todas las repeticiones.</p>` : ""}
         ${notaHtml(e.nombre)}
-        <div class="set-h"><span>#</span><span>kg</span><span>reps</span><span></span></div>
+        <div class="set-h"><span>#</span><span>${e.tiempo ? "kg (opc.)" : "kg"}</span><span>${e.tiempo ? "seg" : "reps"}</span><span></span></div>
         ${e.series.map((s, j) => `<div class="set ${s.ok ? "ok" : ""}"><span class="n">${j + 1}</span>
           <input id="kg-${i}-${j}" inputmode="decimal" data-e="${i}" data-s="${j}" data-f="kg" value="${esc(s.kg)}" placeholder="${esc(s.phKg)}" aria-label="Kilos serie ${j + 1}">
-          <input id="rp-${i}-${j}" inputmode="numeric" data-e="${i}" data-s="${j}" data-f="reps" value="${esc(s.reps)}" placeholder="${esc(s.phReps)}" aria-label="Repeticiones serie ${j + 1}">
+          <input id="rp-${i}-${j}" inputmode="numeric" data-e="${i}" data-s="${j}" data-f="reps" value="${esc(s.reps)}" placeholder="${esc(s.phReps)}" aria-label="${e.tiempo ? "Segundos" : "Repeticiones"} serie ${j + 1}">
           <button data-act="okSerie" data-e="${i}" data-s="${j}" aria-label="Marcar serie ${j + 1} como hecha">✓</button></div>`).join("")}
-        <div class="row" style="gap:0"><button class="ghost small" data-act="masSerie" data-e="${i}">+ Serie</button><button class="ghost small" data-act="discos" data-e="${i}">Discos</button><button class="ghost small" data-act="nota" data-ej="${esc(e.nombre)}">${notaDe(e.nombre) ? "Editar nota" : "Nota"}</button><button class="ghost small" data-act="quitarEj" data-e="${i}" aria-label="Quitar ${esc(e.nombre)}">Quitar</button></div>
+        <div class="row" style="gap:0"><button class="ghost small" data-act="masSerie" data-e="${i}">+ Serie</button>${e.tiempo ? `<button class="ghost small" data-act="crono" data-e="${i}">Cronómetro</button>` : `<button class="ghost small" data-act="discos" data-e="${i}">Discos</button>`}<button class="ghost small" data-act="ajustesEj" data-ej="${esc(e.nombre)}">Ajustes</button><button class="ghost small" data-act="quitarEj" data-e="${i}" aria-label="Quitar ${esc(e.nombre)}">Quitar</button></div>
       </div>`;
     }).join("") || `<p class="small muted">Agregá el primer ejercicio.</p>`}
   </section>
@@ -828,11 +852,12 @@ function pesoEn(fecha) { let r = null; S.pesos.forEach(p => { if (p.fecha <= fec
 function guardarBorrador() { if (borrador) ls.set("sesionActiva", borrador); else ls.del("sesionActiva"); }
 function nuevaSerie(nombre, i, repsDef) {
   const u = ultimaVez(nombre), s = u?.series[i] || u?.series.at(-1);
-  return { kg: "", reps: "", ok: false, phKg: s ? fmtKg(s.kg) : "", phReps: s ? String(s.reps) : (repsDef ? String(repsDef) : "") };
+  return { kg: "", reps: "", ok: false, phKg: s ? fmtKg(s.kg) : "", phReps: s ? String(s.seg || s.reps) : (repsDef ? String(repsDef) : "") };
 }
 function ejercicioBorrador(nombre, nSeries, reps) {
   const u = ultimaVez(nombre), n = nSeries || u?.series.length || 3;
   const e = { nombre, reps, series: Array.from({ length: n }, (_, i) => nuevaSerie(nombre, i, reps)) };
+  if (infoEj(nombre).tiempo) { e.tiempo = true; e.series.forEach(x => { if (x.phKg === "0") x.phKg = ""; }); return e; }
   if (u && reps && u.series.length >= n && u.series.every(s => s.reps >= reps)) {
     const top = Math.max(...u.series.map(s => s.kg));
     if (top > 0) { e.sube = top + 2.5; e.series.forEach(s => s.phKg = fmtKg(e.sube)); }
@@ -900,7 +925,7 @@ function dibujarResumen() {
     </div>
     <div class="stat"><span class="lbl">Peso del mes</span><b>${pesoTxt}</b></div>
     ${(() => { const car = S.cardio.filter(c => c.fecha.startsWith(m)); return car.length ? `<div class="stat"><span class="lbl">Cardio</span><b>${car.reduce((a, c) => a + (c.minutos || 0), 0)} minutos en ${car.length} ${car.length === 1 ? "sesión" : "sesiones"}</b></div>` : ""; })()}
-    <div><span class="eyebrow">Récords del mes</span>${prs.length ? `<div class="list">${prs.map(x => `<div class="li"><div class="grow"><b>${esc(x.ejercicio)}</b> <span class="muted small">${fmtKg(x.kg)} kg × ${x.reps} · ${fmtFecha(x.fecha)}</span></div></div>`).join("")}</div>` : `<p class="small muted">Sin récords este mes.</p>`}</div>
+    <div><span class="eyebrow">Récords del mes</span>${prs.length ? `<div class="list">${prs.map(x => `<div class="li"><div class="grow"><b>${esc(x.ejercicio)}</b> <span class="muted small">${fmtMarca(x)} · ${fmtFecha(x.fecha)}</span></div></div>`).join("")}</div>` : `<p class="small muted">Sin récords este mes.</p>`}</div>
     ${par ? `<div><span class="eyebrow">Comienzo y fin de mes</span><div class="pair">${par.map(x => `<figure><img src="${esc(x.url)}" alt="Foto del ${fmtFecha(x.fecha)}">${fmtFecha(x.fecha)}</figure>`).join("")}</div></div>` : `<p class="small muted">Con fotos de dos días distintos del mes vas a ver acá el comienzo y el final lado a lado.</p>`}
     <div class="row"><button class="grow" data-act="cerrar">Cerrar</button><button class="primary grow" data-act="compartirMes">Compartir</button></div>`);
   ultimoResumen = { nombre, dias, series, vol, prs: prs.length };
@@ -943,7 +968,7 @@ const A = {
     const e = borrador.ejercicios[+t.dataset.e], s = e.series[+t.dataset.s];
     if (!s.ok) {
       if (s.kg === "") s.kg = s.phKg; if (s.reps === "") s.reps = s.phReps;
-      if (num(s.reps) === null || num(s.reps) <= 0) { s.kg = s.kg === s.phKg ? "" : s.kg; toast("Poné las repeticiones de esta serie"); $(`#rp-${t.dataset.e}-${t.dataset.s}`)?.focus(); return; }
+      if (num(s.reps) === null || num(s.reps) <= 0) { s.kg = s.kg === s.phKg ? "" : s.kg; toast(e.tiempo ? "Poné los segundos o usá el cronómetro" : "Poné las repeticiones de esta serie"); $(`#rp-${t.dataset.e}-${t.dataset.s}`)?.focus(); return; }
       if (s.kg === "") s.kg = "0";
       s.ok = true;
       iniciarDescanso();
@@ -959,7 +984,7 @@ const A = {
     e.series.push(s); guardarBorrador(); render();
   },
   quitarEj(t) { borrador.ejercicios.splice(+t.dataset.e, 1); guardarBorrador(); render(); },
-  descartar() { borrador = null; guardarBorrador(); descanso = null; dibujarDescanso(); soltarPantalla(); render(); toast("Entrenamiento descartado"); },
+  descartar() { borrador = null; guardarBorrador(); descanso = null; dibujarDescanso(); crono = null; dibujarCrono(); soltarPantalla(); render(); toast("Entrenamiento descartado"); },
   restMas() { if (descanso) { descanso.fin = Math.max(descanso.fin, Date.now()) + 15000; descanso.sonado = false; dibujarDescanso(); } },
   restFin() { descanso = null; dibujarDescanso(); },
   modoPeso(t) { pesoModo = t.dataset.v; ls.set("pesoModo", pesoModo); render(); },
@@ -995,6 +1020,11 @@ const A = {
     const antes = medallasOn();
     const prs = [];
     ejercicios.forEach(e => {
+      if (e.tiempo) {
+        const prevT = mejorTiempo(e.nombre), topT = e.series.reduce((a, b) => b.seg > a.seg ? b : a);
+        if (prevT && topT.seg > prevT.seg) prs.push({ ejercicio: e.nombre, kg: topT.kg, reps: 0, seg: topT.seg });
+        return;
+      }
       const prev = mejor(e.nombre); if (!prev) return;
       const top = e.series.reduce((a, b) => (b.kg > a.kg || (b.kg === a.kg && b.reps > a.reps)) ? b : a);
       if (top.kg > prev.kg) prs.push({ ejercicio: e.nombre, kg: top.kg, reps: top.reps });
@@ -1002,9 +1032,9 @@ const A = {
     const ses = { id: nid(), fecha: ymd(new Date(d.inicio)), inicio: d.inicio, rutinaId: d.rutinaId, nombre: d.nombre, duracionMin: Math.max(1, Math.round((Date.now() - d.inicio) / 60000)), ejercicios, prs,
       energia: skip ? null : animo.energia, sueno: sueno && sueno > 0 && sueno < 24 ? sueno : null };
     try { await guardar("sesiones", ses); } catch { return; }
-    cerrarSheet(); borrador = null; guardarBorrador(); descanso = null; dibujarDescanso(); soltarPantalla();
+    cerrarSheet(); borrador = null; guardarBorrador(); descanso = null; dibujarDescanso(); crono = null; dibujarCrono(); soltarPantalla();
     vista = "inicio"; render(); scrollTo(0, 0);
-    if (prs.length) toast(`¡Nuevo récord! ${prs.map(p => `${p.ejercicio} ${fmtKg(p.kg)} kg`).join(" · ")}`, "pr");
+    if (prs.length) toast(`¡Nuevo récord! ${prs.map(p => `${p.ejercicio} ${fmtMarcaCorta(p)}`).join(" · ")}`, "pr");
     else { const r = racha(); toast(r.n ? `Entrenamiento guardado. Racha: ${r.n} ${r.n === 1 ? "semana" : "semanas"}.` : `Entrenamiento guardado. Llevás ${r.esta} de ${r.meta} días esta semana.`); }
     avisarMedallas(antes);
   },
@@ -1242,7 +1272,7 @@ function tarjetaCopia() {
     <button class="block" data-act="copia">Descargar copia</button></section>`;
 }
 A.copia = () => {
-  const datos = { app: "Fierro y Balanza", exportado: new Date().toISOString(), pesos: S.pesos, sesiones: S.sesiones, rutinas: S.rutinas, cardio: S.cardio, notas: S.notas, fotos: S.fotos.map(({ url, ...f }) => f), ajustes: S.cfg };
+  const datos = { app: "Fierro y Balanza", exportado: new Date().toISOString(), pesos: S.pesos, sesiones: S.sesiones, rutinas: S.rutinas, cardio: S.cardio, notas: S.notas, ejercicios: S.ejercicios, fotos: S.fotos.map(({ url, ...f }) => f), ajustes: S.cfg };
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" }));
   a.download = `fierro-y-balanza-${hoy()}.json`;
@@ -1505,7 +1535,7 @@ function textoInforme(d) {
   L.push(`Entrenamiento: ${d.dias} días (${fmtKg(d.porSemana)} por semana), ${d.ses.length} sesiones de gym${d.cardioMin ? `, ${d.cardioMin} min de cardio` : ""}`);
   if (d.sueno) L.push(`Sueño promedio: ${fmtKg(d.sueno)} h`);
   if (d.ses.some(s => s.energia)) L.push(`Energía: alta ${d.energia.alta}, media ${d.energia.media}, baja ${d.energia.baja}`);
-  if (d.prs.length) L.push(`Récords: ${d.prs.map(p => `${p.ejercicio} ${fmtKg(p.kg)} kg`).join(", ")}`);
+  if (d.prs.length) L.push(`Récords: ${d.prs.map(p => `${p.ejercicio} ${fmtMarcaCorta(p)}`).join(", ")}`);
   return L.join("\n");
 }
 function dibujarInforme() {
@@ -1529,7 +1559,7 @@ function dibujarInforme() {
       <div class="stat"><span class="lbl">Sueño promedio</span><b>${d.sueno ? fmtKg(d.sueno) + " h" : "Sin datos"}</b>${d.nSueno ? `<span class="lbl">en ${d.nSueno} entrenamientos</span>` : ""}</div>
       <div class="stat"><span class="lbl">Energía al entrenar</span><b>${d.ses.some(s => s.energia) ? `Alta ${d.energia.alta} · Media ${d.energia.media} · Baja ${d.energia.baja}` : "Sin datos"}</b></div>
     </div>
-    ${d.prs.length ? `<div><span class="eyebrow">Récords</span><div class="list">${d.prs.map(p => `<div class="li"><div class="grow"><b>${esc(p.ejercicio)}</b> <span class="small muted">${fmtKg(p.kg)} kg × ${p.reps} · ${fmtFecha(p.fecha)}</span></div></div>`).join("")}</div></div>` : ""}
+    ${d.prs.length ? `<div><span class="eyebrow">Récords</span><div class="list">${d.prs.map(p => `<div class="li"><div class="grow"><b>${esc(p.ejercicio)}</b> <span class="small muted">${fmtMarca(p)} · ${fmtFecha(p.fecha)}</span></div></div>`).join("")}</div></div>` : ""}
     ${d.pesos.some(p => p.nota) ? `<div><span class="eyebrow">Notas de los pesos</span><div class="list">${d.pesos.filter(p => p.nota).map(p => `<div class="li"><div class="grow small"><b>${fmtFecha(p.fecha)}</b> · ${esc(p.nota)}</div></div>`).join("")}</div></div>` : ""}
     <div class="row no-print"><button class="grow" data-act="informeCopiar">Copiar texto</button><button class="grow" data-act="informeImprimir">Guardar PDF</button>${navigator.share ? `<button class="primary grow" data-act="informeCompartir">Compartir</button>` : ""}</div>
   </div>`);
@@ -1588,6 +1618,10 @@ Object.assign(A, {
   evoCerrar() { clearInterval(evo?.id); cerrarSheet(); },
   compartirRecord(t) {
     const d = t.dataset;
+    if (+d.seg) {
+      const seg = +d.seg;
+      return mostrarImagen({ titulo: "Nuevo récord", grande: seg >= 60 ? `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")}` : String(seg), unidad: seg >= 60 ? "minutos" : "segundos", detalle: `${d.ej}${+d.kg ? ` · con ${fmtKg(+d.kg)} kg` : ""}`, fecha: fmtFecha(d.f, { day: "numeric", month: "long", year: "numeric" }) }, `Nuevo récord: ${d.ej} ${fmtSeg(seg)}`);
+    }
     mostrarImagen({ titulo: "Nuevo récord", grande: fmtKg(+d.kg), unidad: "kg", detalle: `${d.ej} · ${d.reps} ${+d.reps === 1 ? "repetición" : "repeticiones"}`, fecha: fmtFecha(d.f, { day: "numeric", month: "long", year: "numeric" }) }, `Nuevo récord: ${d.ej} ${fmtKg(+d.kg)} kg`);
   },
   compartirMedalla(t) { mostrarImagen({ titulo: "Medalla desbloqueada", grande: t.dataset.m, unidad: "", detalle: t.dataset.t, fecha: fmtFecha(hoy(), { day: "numeric", month: "long", year: "numeric" }) }, `Medalla: ${t.dataset.t}`); },
@@ -1644,6 +1678,111 @@ addEventListener("online", async () => {
   if (estado === "error") A.reintentar(); else render();
 });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && cola.get().length) vaciarCola().then(ok => ok && render()); });
+
+
+/* ---------- grupos musculares y ejercicios por tiempo ---------- */
+const GRUPOS = { pecho: "Pecho", espalda: "Espalda", hombros: "Hombros", biceps: "Bíceps", triceps: "Tríceps", piernas: "Piernas", gluteos: "Glúteos", core: "Core / abdomen", otro: "Otro" };
+// El orden importa: lo más específico primero ("curl femoral" es pierna, "patada de tríceps" es tríceps)
+const REGLAS_GRUPO = [
+  [/plancha/, "core"],
+  [/tr[ií]ceps|franc[eé]s|fondos|press cerrado|rompecr[aá]neos/, "triceps"],
+  [/femoral|curl (de )?pierna|curl acostado|curl sentado|isquio/, "piernas"],
+  [/b[ií]ceps|curl|martillo|predicador|scott/, "biceps"],
+  [/hip thrust|gl[uú]te|puente|patada|abducci|abductor|kickback/, "gluteos"],
+  [/sentadilla|prensa|squat|zancada|estocada|b[uú]lgara|extensi[oó]n de (piernas|cu[aá]driceps)|cu[aá]driceps|gemelo|pantorrilla|aductor|hack|rumano|leg press|step/, "piernas"],
+  [/jal[oó]n|remo|dominada/, "espalda"],
+  [/press (de )?banca|banco plano|inclinad|declinad|pecho|apertura|pec ?deck|cruce|crossover|flexiones|lagartija/, "pecho"],
+  [/militar|hombro|lateral|frontal|p[aá]jaro|vuelos|face ?pull|arnold|deltoide/, "hombros"],
+  [/remo|dominada|jal[oó]n|pull|dorsal|espalda|peso muerto|serrucho|pullover|lumbar|hiperextensi/, "espalda"],
+  [/plancha|abdominal|abs\b|crunch|core|rueda|oblicuo|hollow|elevaci[oó]n de piernas|russian|bicho|superman/, "core"]
+];
+const REGLA_TIEMPO = /plancha|isom[eé]tric|wall sit|(sentadilla|silla) (en|contra la) pared|hollow|dead hang|soga|l-sit|superman/;
+function infoEj(nombre) {
+  const guardado = S.ejercicios.find(x => x.id === slug(nombre));
+  if (guardado) return { grupo: GRUPOS[guardado.grupo] ? guardado.grupo : "otro", tiempo: !!guardado.tiempo, guardado: true };
+  const n = String(nombre).toLowerCase();
+  return { grupo: (REGLAS_GRUPO.find(([re]) => re.test(n)) || [, "otro"])[1], tiempo: REGLA_TIEMPO.test(n) };
+}
+function tarjetaMusculos() {
+  if (!S.sesiones.length) return "";
+  const desde = ymd(new Date(Date.now() - 6 * 864e5));
+  const cuenta = Object.fromEntries(Object.keys(GRUPOS).map(k => [k, 0]));
+  S.sesiones.filter(s => s.fecha >= desde).forEach(s => s.ejercicios.forEach(e => { cuenta[infoEj(e.nombre).grupo] += e.series.length; }));
+  const filas = Object.keys(GRUPOS).filter(k => k !== "otro" || cuenta.otro);
+  const total = filas.reduce((a, k) => a + cuenta[k], 0);
+  const sinSeries = filas.filter(k => k !== "otro" && !cuenta[k]).map(k => GRUPOS[k]);
+  const max = Math.max(20, ...filas.map(k => cuenta[k]));
+  return `<section class="card"><div class="card-head"><span class="eyebrow">Series por músculo</span><span class="pill">últimos 7 días</span></div>
+    ${total && sinSeries.length ? `<p class="small">Sin trabajar: <b style="color:var(--accent)">${sinSeries.join(", ")}</b></p>` : ""}
+    ${total ? filas.map(k => `<div class="goal"><div class="row small"><span class="${cuenta[k] ? "" : "muted"}">${GRUPOS[k]}</span><b class="${cuenta[k] ? "" : "muted"}">${cuenta[k]} ${cuenta[k] === 1 ? "serie" : "series"}</b></div>
+      <div class="bar ${cuenta[k] >= 10 ? "good" : ""}"><i style="width:${cuenta[k] / max * 100}%"></i></div></div>`).join("")
+      : `<p class="small muted">No entrenaste en los últimos 7 días.</p>`}
+    <p class="small muted">Como referencia general, muchas guías sugieren entre 10 y 20 series por semana para cada grupo. El grupo de cada ejercicio se adivina por el nombre; si está mal, cambialo en Ajustes del ejercicio.</p></section>`;
+}
+let ajEj = null;
+let crono = null, cronoId = null;
+function dibujarCrono() {
+  let el = $("#crono");
+  if (!crono) { el?.remove(); clearInterval(cronoId); return; }
+  const seg = Math.floor((Date.now() - crono.inicio) / 1000);
+  if (!el) {
+    el = document.createElement("div"); el.id = "crono"; el.className = "rest";
+    el.innerHTML = `<div class="in" role="timer"><span class="t"></span><span class="grow small lbl"></span><button data-act="cronoCancelar">Cancelar</button><button data-act="cronoParar">Listo</button></div>`;
+    document.body.appendChild(el);
+  }
+  el.querySelector(".t").textContent = `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")}`;
+  const e = borrador?.ejercicios[crono.i];
+  el.querySelector(".lbl").textContent = `${e?.nombre || ""} · serie ${crono.j + 1}${crono.objetivo ? ` · objetivo ${fmtSeg(crono.objetivo)}` : ""}`;
+  if (crono.objetivo && seg >= crono.objetivo && !crono.sonado) { crono.sonado = true; el.classList.add("fin"); beep(); try { navigator.vibrate?.([200, 100, 200]); } catch {} }
+}
+Object.assign(A, {
+  crono(t) {
+    const i = +t.dataset.e, e = borrador.ejercicios[i], j = e.series.findIndex(x => !x.ok);
+    if (j < 0) { toast("Ya marcaste todas las series. Agregá otra con + Serie."); return; }
+    const obj = num(e.series[j].reps || e.series[j].phReps);
+    try { actx ||= new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.(); } catch {}
+    descanso = null; dibujarDescanso();
+    crono = { i, j, inicio: Date.now(), objetivo: obj > 0 ? obj : null, sonado: false };
+    clearInterval(cronoId); cronoId = setInterval(dibujarCrono, 200); dibujarCrono();
+  },
+  cronoParar() {
+    if (!crono || !borrador) return;
+    const seg = Math.max(1, Math.floor((Date.now() - crono.inicio) / 1000)), s = borrador.ejercicios[crono.i]?.series[crono.j];
+    crono = null; dibujarCrono();
+    if (!s) return;
+    s.reps = String(seg); if (s.kg === "") s.kg = s.phKg || "0"; s.ok = true;
+    guardarBorrador(); render(); iniciarDescanso(); toast(`Serie guardada: ${fmtSeg(seg)}`);
+  },
+  cronoCancelar() { crono = null; dibujarCrono(); },
+  ajustesEj(t) {
+    ajEj = t.dataset.ej; const inf = infoEj(ajEj), n = notaDe(ajEj);
+    sheet(`<h2>${esc(ajEj)}</h2>
+      <div class="grid2"><label class="f">Grupo muscular<select id="ajGrupo">${Object.entries(GRUPOS).map(([k, v]) => `<option value="${k}" ${k === inf.grupo ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label class="f">Se registra en<select id="ajTipo"><option value="reps" ${inf.tiempo ? "" : "selected"}>Repeticiones</option><option value="tiempo" ${inf.tiempo ? "selected" : ""}>Segundos</option></select></label></div>
+      ${inf.guardado ? "" : `<p class="small muted">Lo elegí según el nombre del ejercicio. Si no es así, cambialo.</p>`}
+      <label class="f">Nota<textarea id="nTexto" rows="3" maxlength="500" placeholder="Ej.: molestia en el hombro, agarre más cerrado, asiento en el 4">${esc(n?.texto || "")}</textarea></label>
+      <p class="small muted">La nota aparece cada vez que hacés este ejercicio. Con "Segundos" tenés un cronómetro en cada serie, ideal para plancha o isométricos.</p>
+      <div class="row"><button class="grow" data-act="cerrar">Cancelar</button><button class="primary grow" data-act="guardarAjustesEj">Guardar</button></div>`);
+  },
+  async guardarAjustesEj() {
+    const grupo = $("#ajGrupo").value, tiempo = $("#ajTipo").value === "tiempo", texto = $("#nTexto").value.trim(), id = slug(ajEj), n = notaDe(ajEj);
+    cerrarSheet();
+    try {
+      await guardar("ejercicios", { id, nombre: ajEj, grupo, tiempo });
+      if (texto && texto !== n?.texto) await guardar("notas", { id, ejercicio: ajEj, texto, fecha: hoy() });
+      else if (!texto && n) await borrar("notas", id);
+    } catch { return; }
+    if (borrador) {
+      borrador.ejercicios.forEach(e => {
+        if (!mismo(e.nombre, ajEj) || !!e.tiempo === tiempo) return;
+        e.tiempo = tiempo; delete e.sube;
+        e.series.forEach(x => { if (!x.ok) x.phReps = ""; });
+      });
+      guardarBorrador();
+    }
+    render(); toast("Ejercicio guardado");
+  }
+});
 
 iniciar();
 </script>

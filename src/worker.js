@@ -1,6 +1,6 @@
 import { sendPush } from "./push.js";
 
-const COLECCIONES = new Set(["pesos", "sesiones", "rutinas", "fotos", "ajustes", "cardio", "notas"]);
+const COLECCIONES = new Set(["pesos", "sesiones", "rutinas", "fotos", "ajustes", "cardio", "notas", "ejercicios"]);
 const ID_OK = /^[A-Za-z0-9_-]{1,64}$/;
 const COOKIE = "fyb";
 const UY_OFFSET_H = -3; // Uruguay no tiene horario de verano
@@ -43,7 +43,7 @@ async function api(req, env, url) {
 
   if (p === "/api/todo" && method === "GET") {
     const { results } = await env.DB.prepare("SELECT coleccion, id, data FROM registros").all();
-    const out = { pesos: [], sesiones: [], rutinas: [], fotos: [], cardio: [], notas: [], ajustes: {} };
+    const out = { pesos: [], sesiones: [], rutinas: [], fotos: [], cardio: [], notas: [], ejercicios: [], ajustes: {} };
     for (const r of results) {
       const d = JSON.parse(r.data);
       if (r.coleccion === "ajustes") out.ajustes[r.id] = d;
@@ -156,7 +156,7 @@ async function calcularAvisos(env) {
 
   // logros de hoy
   const prsHoy = D.sesiones.filter(s => s.fecha === diaLogros).flatMap(s => s.prs || []);
-  if (prsHoy.length) avisos.push({ p: 0, t: `¡Nuevo récord en ${prsHoy.map(x => `${x.ejercicio} (${String(x.kg).replace(".", ",")} kg)`).join(" y ")}! ${temprano ? "Ayer" : "Hoy"} rompiste todo 🏆` });
+  if (prsHoy.length) avisos.push({ p: 0, t: `¡Nuevo récord en ${prsHoy.map(x => `${x.ejercicio} (${x.seg ? (x.seg >= 60 ? `${Math.floor(x.seg / 60)}:${String(x.seg % 60).padStart(2, "0")} min` : `${x.seg} s`) : `${String(x.kg).replace(".", ",")} kg`})`).join(" y ")}! ${temprano ? "Ayer" : "Hoy"} rompiste todo 🏆` });
   const total = D.sesiones.length;
   if (D.sesiones.some(s => s.fecha === diaLogros) && [1, 10, 25, 50, 100, 200].includes(total)) avisos.push({ p: 1, t: total === 1 ? "¡Primer entrenamiento registrado! Arrancaste 💪" : `¡Llegaste a ${total} entrenamientos! Ganaste una medalla nueva 🏅` });
   const pesos = [...D.pesos].sort((a, b) => a.fecha.localeCompare(b.fecha));

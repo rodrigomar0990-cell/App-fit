@@ -29,8 +29,8 @@ const paso = (n) => console.log("✓", n);
   // entrenamiento desde Inicio + nota + discos
   await page.click("text=Hoy toca Día A");
   await page.waitForSelector("#timer");
-  await page.click("button[data-act=nota]"); await page.fill("#nTexto", "Agarre más cerrado"); await page.click("button[data-act=guardarNota]");
-  await toast("Nota guardada"); await page.waitForSelector(".nota:has-text('Agarre más cerrado')"); paso("nota por ejercicio");
+  await page.click("button[data-act=ajustesEj]"); await page.fill("#nTexto", "Agarre más cerrado"); await page.click("button[data-act=guardarAjustesEj]");
+  await toast("Ejercicio guardado"); await page.waitForSelector(".nota:has-text('Agarre más cerrado')"); paso("nota por ejercicio");
   await page.fill("#kg-0-0", "87,5"); await page.click("button[data-act=discos][data-e='0']");
   await page.waitForSelector("text=25 + 5 + 2,5 + 1,25 kg"); await page.screenshot({ path: OUT + "/discos.png" }); paso("calculadora de discos (87,5 kg)");
   await page.click(".sheet button[data-act=cerrar]");
