@@ -219,6 +219,62 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .pair figure { margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); text-align: center; min-width: 0; }
 .pair img { width: 100%; max-width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; }
 .note.row { align-items: center; }
+/* plan, cardio, calendario, notas, discos, cámara, evolución, compartir, informe */
+.plan { display: flex; flex-direction: column; gap: 6px; }
+.plan-row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; align-items: center; font-size: 14px; }
+.plan-row.hoy span { color: var(--accent); font-weight: 600; }
+.plan-row select { padding: 8px 10px; }
+.heat { overflow-x: auto; direction: rtl; padding-bottom: 4px; }
+.heat svg { direction: ltr; display: block; }
+.heat text { fill: var(--muted); font-size: 9px; font-family: var(--body); }
+.hg { fill: var(--accent); }
+.hc { fill: var(--accent); fill-opacity: .4; }
+.h0 { fill: var(--surface-2); }
+.lg { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: middle; }
+.lg.hg { background: var(--accent); }
+.lg.hc { background: var(--accent); opacity: .4; }
+.lg.h0 { background: var(--surface-2); border: 1px solid var(--line); }
+.nota { background: var(--accent-soft); border-radius: 8px; padding: 7px 10px; overflow-wrap: anywhere; }
+textarea { resize: vertical; }
+button.medal { font-weight: 400; cursor: pointer; }
+.barra { display: flex; align-items: center; gap: 3px; min-height: 150px; overflow-x: auto; padding-block: 6px; }
+.barra .eje { flex: none; width: 46px; height: 10px; background: var(--muted); border-radius: 3px; }
+.disco { flex: none; width: 28px; border-radius: 5px; background: var(--accent); color: var(--on-accent); font-family: var(--display); font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); }
+.cam { position: fixed; inset: 0; z-index: 70; background: #000; }
+.cam video, .cam .guia { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cam .guia { pointer-events: none; }
+.espejo { transform: scaleX(-1); }
+.cam button { background: rgba(0,0,0,.55); color: #fff; }
+.cam-top {
+  position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px));
+}
+.cam-top .pill { background: rgba(0,0,0,.55); color: var(--accent); white-space: normal; text-align: center; }
+.cam-bot {
+  position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; color: #fff;
+  padding: 18px max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(transparent, rgba(0,0,0,.65));
+}
+.cam-bot label { display: flex; flex-direction: column; gap: 4px; }
+.cam-bot > :last-child { justify-self: end; }
+.cam .disparo { width: 76px; height: 76px; padding: 0; border-radius: 50%; background: var(--accent); border: 4px solid #fff; }
+.cam-cuenta { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 150px; color: var(--accent); text-shadow: 0 4px 30px rgba(0,0,0,.6); pointer-events: none; }
+.evo { position: relative; width: 100%; max-width: 100%; aspect-ratio: 3/4; border-radius: 12px; overflow: hidden; background: var(--surface-2); }
+.evo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.evo .tag { position: absolute; left: 8px; bottom: 8px; font-size: 13px; font-weight: 600; background: rgba(0,0,0,.65); color: var(--accent); padding: 4px 10px; border-radius: 99px; }
+.share-img { max-height: 55vh; width: auto; align-self: center; border: 1px solid var(--line); }
+a.btn { text-decoration: none; }
+.informe { display: flex; flex-direction: column; gap: 14px; }
+.solo-print { display: none; }
+@media print {
+  :root { --bg: #fff; --surface: #fff; --surface-2: #f3f1ea; --ink: #111; --muted: #555; --line: #ddd; --accent: #8a6d12; --accent-soft: #f4ecd2; color-scheme: light; }
+  body > *:not(.scrim) { display: none !important; }
+  body::before { display: none; }
+  .scrim { position: static; background: none; display: block; }
+  .sheet { max-height: none; overflow: visible; border: 0; box-shadow: none; animation: none; }
+  .no-print, .toast { display: none !important; }
+  .solo-print { display: block; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .toast { animation: up .25s ease-out; }
   .sheet { animation: up .22s ease-out; }
@@ -260,12 +316,13 @@ const ls = {
 };
 
 /* ---------- datos ---------- */
-const S = { pesos: [], fotos: [], rutinas: [], sesiones: [], cfg: { pesoMeta: null, diasSemana: 3, descanso: 90, metas: [] } };
-const COLLS = ["pesos", "fotos", "rutinas", "sesiones"];
+const S = { pesos: [], fotos: [], rutinas: [], sesiones: [], cardio: [], notas: [], cfg: { pesoMeta: null, diasSemana: 3, descanso: 90, metas: [] } };
+const COLLS = ["pesos", "fotos", "rutinas", "sesiones", "cardio", "notas"];
 let estado = "cargando";
 
 async function apiFetch(path, opts = {}) {
-  const r = await fetch(path, { credentials: "same-origin", ...opts });
+  let r;
+  try { r = await fetch(path, { credentials: "same-origin", ...opts }); } catch { throw { code: "red" }; }
   if (r.status === 401 && !path.endsWith("/login")) { estado = "login"; render(); throw { code: "login" }; }
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw { code: r.status, message: e.error }; }
   return r.json();
@@ -283,26 +340,66 @@ const sortAll = () => {
   S.fotos.sort((a, b) => a.fecha.localeCompare(b.fecha));
   S.sesiones.sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.inicio || 0) - (b.inicio || 0));
   S.rutinas.sort((a, b) => (a.creado || 0) - (b.creado || 0));
+  S.cardio.sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.creado || 0) - (b.creado || 0));
 };
+/* Sin señal: los cambios quedan en una cola en el celular y se suben solos cuando vuelve la conexión */
+const cola = { get: () => ls.get("cola", []), set: q => ls.set("cola", q) };
+let subiendo = false;
+function guardarCopia() {
+  ls.set("copia", { pesos: S.pesos, sesiones: S.sesiones, rutinas: S.rutinas, fotos: S.fotos, cardio: S.cardio, notas: S.notas, ajustes: { general: S.cfg }, guardada: Date.now() });
+}
+async function escribir(op, c, id, data) {
+  guardarCopia();
+  if (!cola.get().length) {
+    try { op === "put" ? await Store.put(c, id, data) : await Store.del(c, id); return; }
+    catch (e) { if (e?.code !== "red") throw e; }
+  }
+  cola.set([...cola.get(), { op, c, id, data }]);
+  const ok = await vaciarCola();
+  if (!ok) toast("Sin señal: quedó guardado en el celular y se sube solo cuando vuelva la conexión.", "offline");
+}
+async function vaciarCola() {
+  if (subiendo) return false;
+  subiendo = true;
+  try {
+    while (cola.get().length) {
+      const o = cola.get()[0];
+      try { o.op === "put" ? await Store.put(o.c, o.id, o.data) : await Store.del(o.c, o.id); }
+      catch (e) { if (e?.code === "red" || e?.code === "login" || !(e?.code >= 400 && e?.code < 500)) throw e; }
+      cola.set(cola.get().slice(1));
+    }
+    return true;
+  } catch { return false; }
+  finally { subiendo = false; }
+}
+function aplicarCola() {
+  for (const o of cola.get()) {
+    if (o.c === "ajustes") { if (o.op === "put") S.cfg = { ...S.cfg, ...o.data }; continue; }
+    const arr = S[o.c]; if (!arr) continue;
+    const i = arr.findIndex(x => x.id === o.id);
+    if (o.op === "del") { if (i >= 0) arr.splice(i, 1); }
+    else if (i >= 0) arr[i] = { id: o.id, ...o.data }; else arr.push({ id: o.id, ...o.data });
+  }
+}
 async function guardar(c, obj) {
   const { id, ...data } = obj;
   const arr = S[c], i = arr.findIndex(x => x.id === id);
   if (i >= 0) arr[i] = obj; else arr.push(obj);
   sortAll();
-  try { await Store.put(c, id, data); }
-  catch (e) { if (e?.code !== "login") toast(navigator.onLine === false ? "Sin internet: no se pudo guardar. Probá cuando tengas señal." : "No se pudo guardar. Probá de nuevo."); throw e; }
+  try { await escribir("put", c, id, data); }
+  catch (e) { if (e?.code !== "login") toast("No se pudo guardar. Probá de nuevo."); throw e; }
 }
 async function borrar(c, id) {
   S[c] = S[c].filter(x => x.id !== id);
-  try { await Store.del(c, id); } catch { toast("No se pudo borrar. Probá de nuevo."); }
+  try { await escribir("del", c, id); } catch (e) { if (e?.code !== "login") toast("No se pudo borrar. Probá de nuevo."); }
 }
 async function guardarCfg() {
-  try { await Store.put("ajustes", "general", S.cfg); }
+  try { await escribir("put", "ajustes", "general", S.cfg); }
   catch (e) { if (e?.code !== "login") toast("No se pudieron guardar los objetivos."); }
 }
 
 /* ---------- cálculos ---------- */
-const diasEntrenados = () => new Set(S.sesiones.map(s => s.fecha));
+const diasEntrenados = () => new Set([...S.sesiones.map(s => s.fecha), ...S.cardio.map(c => c.fecha)]);
 function racha() {
   const meta = S.cfg.diasSemana || 3, porSemana = {};
   diasEntrenados().forEach(f => { const k = ymd(lunes(parseYmd(f))); porSemana[k] = (porSemana[k] || 0) + 1; });
@@ -317,7 +414,8 @@ function semanaActual() {
   const l = lunes(new Date()), k0 = ymd(l), ses = S.sesiones.filter(s => s.fecha >= k0);
   let vol = 0, series = 0;
   ses.forEach(s => s.ejercicios.forEach(e => e.series.forEach(x => { series++; vol += (x.kg || 0) * (x.reps || 0); })));
-  return { sesiones: ses.length, vol, series };
+  const cardioMin = S.cardio.filter(c => c.fecha >= k0).reduce((a, c) => a + (c.minutos || 0), 0);
+  return { sesiones: ses.length, vol, series, cardioMin };
 }
 const nombresEjercicios = () => {
   const set = new Set();
@@ -457,9 +555,12 @@ let descanso = null, restId = null, actx = null, wake = null;
 let timerId = null;
 
 function toast(msg, cls = "") {
+  // El aviso de "sin señal" no se pisa: el mensaje nuevo se suma adelante
+  const sinSenal = document.querySelector(".toast.offline");
   document.querySelectorAll(".toast").forEach(t => t.remove());
   const t = document.createElement("div"); t.className = "toast " + cls; t.textContent = msg;
-  document.body.appendChild(t); setTimeout(() => t.remove(), 3200);
+  if (sinSenal && !cls.includes("offline")) { t.textContent = msg.replace(/\.$/, "") + ". " + sinSenal.textContent; t.classList.add("offline"); }
+  document.body.appendChild(t); setTimeout(() => t.remove(), t.classList.contains("offline") ? 5000 : 3200);
 }
 function sheet(html) {
   cerrarSheet();
@@ -483,8 +584,12 @@ function tick() {
   const s = Math.floor((Date.now() - borrador.inicio) / 1000);
   el.textContent = `${Math.floor(s / 3600) ? Math.floor(s / 3600) + ":" : ""}${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
-const banner = () => estado === "cargando" ? `<p class="note">Cargando tus datos…</p>`
-  : estado === "error" ? `<div class="note row"><span class="grow">No pude conectarme para traer tus datos. Revisá tu internet.</span><button class="ghost" data-act="reintentar">Reintentar</button></div>` : "";
+const banner = () => {
+  const n = cola.get().length;
+  const pend = n ? `<div class="note row"><span class="grow">${n === 1 ? "1 cambio guardado" : n + " cambios guardados"} en el celular. Se suben solos cuando vuelva la señal.</span><button class="ghost" data-act="subirAhora">Subir ahora</button></div>` : "";
+  return pend + (estado === "cargando" ? `<p class="note">Cargando tus datos…</p>`
+    : estado === "error" ? `<div class="note row"><span class="grow">Sin conexión: estás viendo lo guardado en el celular. Lo que anotes se sube cuando vuelva la señal.</span><button class="ghost" data-act="reintentar">Reintentar</button></div>` : "");
+};
 
 const V = {};
 
@@ -522,7 +627,7 @@ V.inicio = () => {
     <div class="card-head"><span class="eyebrow">Racha</span><span class="pill">${r.esta}/${r.meta} esta semana</span></div>
     <div class="streak"><span class="num">${r.n}</span><p>${r.n === 1 ? "semana seguida" : "semanas seguidas"} cumpliendo ${r.meta} días de gimnasio${r.esta < r.meta ? `<br><span class="small muted">${r.meta - r.esta === 1 ? "Te falta 1 día" : `Te faltan ${r.meta - r.esta} días`} para sumar esta semana.</span>` : ""}</p></div>
     <div class="week">${dias}</div>
-    <button class="primary block" data-act="go" data-v="gym">${borrador ? "Seguir entrenamiento" : "Entrenar hoy"}</button>
+    ${botonHoy()}
   </section>
   <section class="card">
     <div class="card-head"><span class="eyebrow">Peso</span>${act ? `<button class="ghost" data-act="nuevoPeso">+ Anotar</button>` : ""}</div>
@@ -535,6 +640,7 @@ V.inicio = () => {
       <div class="stat"><span class="num">${sem.series}</span><span class="lbl">series</span></div>
       <div class="stat"><span class="num">${sem.vol >= 10000 ? fmtKg(sem.vol / 1000) + "t" : fmtKg(sem.vol)}</span><span class="lbl">kg levantados</span></div>
     </div>
+    ${sem.cardioMin ? `<p class="small muted">Más ${sem.cardioMin} minutos de cardio.</p>` : ""}
     <button class="block" data-act="resumenMes">Ver resumen de ${new Date().toLocaleDateString("es-UY", { month: "long" })}</button>
   </section>
   <section class="card">
@@ -542,8 +648,9 @@ V.inicio = () => {
     ${metasHtml}
   </section>
   ${(() => { const med = medallas(); return `<section class="card"><div class="card-head"><span class="eyebrow">Medallas</span><span class="pill">${med.filter(m => m.on).length} de ${med.length}</span></div>
-    <div class="medals">${med.map(m => `<div class="medal ${m.on ? "on" : ""}"><span class="m">${esc(m.m)}</span>${esc(m.t)}</div>`).join("")}</div></section>`; })()}
-  ${prs.length ? `<section class="card"><span class="eyebrow">Últimos récords</span><div class="list">${prs.map(x => `<div class="li"><span class="pill hot">Récord</span><div class="grow"><p><b>${esc(x.ejercicio)}</b></p><p class="small muted">${fmtKg(x.kg)} kg × ${x.reps} · ${fmtFecha(x.fecha)}</p></div></div>`).join("")}</div></section>` : ""}
+    <div class="medals">${med.map(m => m.on ? `<button class="medal on" data-act="compartirMedalla" data-m="${esc(m.m)}" data-t="${esc(m.t)}" aria-label="Compartir medalla ${esc(m.t)}"><span class="m">${esc(m.m)}</span>${esc(m.t)}</button>` : `<div class="medal"><span class="m">${esc(m.m)}</span>${esc(m.t)}</div>`).join("")}</div>
+    ${med.some(m => m.on) ? `<p class="small muted">Tocá una medalla ganada para compartirla.</p>` : ""}</section>`; })()}
+  ${prs.length ? `<section class="card"><span class="eyebrow">Últimos récords</span><div class="list">${prs.map(x => `<div class="li"><span class="pill hot">Récord</span><div class="grow"><p><b>${esc(x.ejercicio)}</b></p><p class="small muted">${fmtKg(x.kg)} kg × ${x.reps} · ${fmtFecha(x.fecha)}</p></div><button class="ghost small" data-act="compartirRecord" data-ej="${esc(x.ejercicio)}" data-kg="${x.kg}" data-reps="${x.reps}" data-f="${x.fecha}">Compartir</button></div>`).join("")}</div></section>` : ""}
   `;
 };
 
@@ -596,7 +703,7 @@ V.gym = () => {
   const est = b ? Math.max(...S.sesiones.flatMap(s => s.ejercicios.filter(e => mismo(e.nombre, ejSel)).flatMap(e => e.series.map(x => rm1(x.kg, x.reps))))) : 0;
   const rut = S.rutinas.map(r => {
     const u = [...S.sesiones].reverse().find(s => s.rutinaId === r.id);
-    return `<div class="rut"><div class="grow"><h3>${esc(r.nombre)}</h3><p class="small muted">${r.ejercicios.length} ejercicios${u ? " · última vez " + fmtFecha(u.fecha) : ""}</p></div>
+    return `<div class="rut"><div class="grow"><h3>${esc(r.nombre)}</h3><p class="small muted">${r.ejercicios.length} ${r.ejercicios.length === 1 ? "ejercicio" : "ejercicios"}${u ? " · última vez " + fmtFecha(u.fecha) : ""}</p></div>
       <button class="ghost small" data-act="editarRutina" data-id="${r.id}">Editar</button><button class="primary" data-act="empezar" data-id="${r.id}">Empezar</button></div>`;
   }).join("");
   return `
@@ -605,16 +712,20 @@ V.gym = () => {
   <section class="card">
     <div class="card-head"><span class="eyebrow">Tus rutinas</span><button class="ghost" data-act="editarRutina">+ Nueva</button></div>
     ${rut || `<div class="empty"><p>Armá tus rutinas una vez (Día A, Día B…) y después solo cargás pesos y repeticiones.</p><button class="primary" data-act="editarRutina">Crear rutina</button></div>`}
-    <button class="block" data-act="empezar">Entrenamiento libre</button>
+    <div class="grid2"><button data-act="empezar">Entrenamiento libre</button><button data-act="discos">Calculadora de discos</button></div>
   </section>
+  ${tarjetaPlan()}
+  ${tarjetaCardio()}
   <section class="card">
     <div class="card-head"><span class="eyebrow">Progreso por ejercicio</span></div>
     ${nombres.length ? `
       <select id="ejSel" aria-label="Ejercicio">${nombres.map(n => `<option ${mismo(n, ejSel || "") ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
+      ${ejSel ? notaHtml(ejSel) : ""}
       ${b ? `<div class="grid2"><div class="stat"><span class="num">${fmtKg(b.kg)} kg</span><span class="lbl">mejor marca · ${b.reps} reps · ${fmtFecha(b.fecha)}</span></div><div class="stat"><span class="num">${fmtKg(est)} kg</span><span class="lbl">1RM estimado (máximo a 1 repetición)</span></div></div>` : ""}
       ${chart(hist, { vacio: "Entrená este ejercicio dos veces y vas a ver cómo sube el peso." })}` :
       `<p class="small muted">Cuando registres entrenamientos vas a ver acá el peso máximo de cada ejercicio a lo largo del tiempo.</p>`}
   </section>
+  ${tarjetaCalendario()}
   ${tarjetaRendimiento()}
   <section class="card">
     <span class="eyebrow">Historial</span>
@@ -636,15 +747,16 @@ function vistaSesion() {
     ${d.ejercicios.map((e, i) => {
       const u = ultimaVez(e.nombre), b = mejor(e.nombre);
       return `<div class="ex">
-        <div class="ex-head"><h3>${esc(e.nombre)}</h3><div class="row" style="gap:0;flex-wrap:nowrap"><button class="ghost small" data-act="calentar" data-e="${i}">Calentar</button><button class="ghost small" data-act="quitarEj" data-e="${i}" aria-label="Quitar ${esc(e.nombre)}">Quitar</button></div></div>
+        <div class="ex-head"><h3>${esc(e.nombre)}</h3><button class="ghost small" data-act="calentar" data-e="${i}">Calentar</button></div>
         <p class="small muted">${u ? `Última vez (${fmtFecha(u.fecha)}): ${resumenSeries(u.series)}` : "Primera vez con este ejercicio"}${b ? ` · Récord ${fmtKg(b.kg)} kg` : ""}</p>
         ${e.sube ? `<p class="small"><span class="pill good">Subí a ${fmtKg(e.sube)} kg</span> La última vez completaste todas las repeticiones.</p>` : ""}
+        ${notaHtml(e.nombre)}
         <div class="set-h"><span>#</span><span>kg</span><span>reps</span><span></span></div>
         ${e.series.map((s, j) => `<div class="set ${s.ok ? "ok" : ""}"><span class="n">${j + 1}</span>
           <input id="kg-${i}-${j}" inputmode="decimal" data-e="${i}" data-s="${j}" data-f="kg" value="${esc(s.kg)}" placeholder="${esc(s.phKg)}" aria-label="Kilos serie ${j + 1}">
           <input id="rp-${i}-${j}" inputmode="numeric" data-e="${i}" data-s="${j}" data-f="reps" value="${esc(s.reps)}" placeholder="${esc(s.phReps)}" aria-label="Repeticiones serie ${j + 1}">
           <button data-act="okSerie" data-e="${i}" data-s="${j}" aria-label="Marcar serie ${j + 1} como hecha">✓</button></div>`).join("")}
-        <div><button class="ghost small" data-act="masSerie" data-e="${i}">+ Serie</button></div>
+        <div class="row" style="gap:0"><button class="ghost small" data-act="masSerie" data-e="${i}">+ Serie</button><button class="ghost small" data-act="discos" data-e="${i}">Discos</button><button class="ghost small" data-act="nota" data-ej="${esc(e.nombre)}">${notaDe(e.nombre) ? "Editar nota" : "Nota"}</button><button class="ghost small" data-act="quitarEj" data-e="${i}" aria-label="Quitar ${esc(e.nombre)}">Quitar</button></div>
       </div>`;
     }).join("") || `<p class="small muted">Agregá el primer ejercicio.</p>`}
   </section>
@@ -685,7 +797,8 @@ V.fotos = () => {
       <label class="f">Fecha<input type="date" id="fFecha" value="${hoy()}" max="${hoy()}"></label>
       <label class="f">Pose<select id="fPose">${Object.entries(POSES).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></label>
     </div>
-    <label class="upl" id="uplLbl">Elegir o sacar foto<input type="file" id="fFile" accept="image/*"></label>
+    ${navigator.mediaDevices?.getUserMedia ? `<button class="primary block" data-act="camara">Sacar foto con guía</button>` : ""}
+    <label class="upl" id="uplLbl">Elegir de la galería<input type="file" id="fFile" accept="image/*"></label>
     <p class="small muted">Tip: misma luz, mismo lugar y misma hora (mejor en ayunas) para que la comparación sea justa.</p>`
     : `<p class="note">${estado === "cargando" ? "Preparando la subida de fotos…" : "Para subir fotos necesitás conexión a internet."}</p>`}
   </section>
@@ -703,7 +816,7 @@ V.fotos = () => {
     : `<div class="chart-empty">Con fotos de dos días distintos podés deslizar entre el antes y el ahora.</div>`}
   </section>
   <section class="card">
-    <span class="eyebrow">Galería</span>
+    <div class="card-head"><span class="eyebrow">Galería</span>${Object.keys(POSES).some(p => f.filter(x => x.pose === p).length >= 2) ? `<button class="ghost" data-act="evolucion">Ver evolución</button>` : ""}</div>
     ${f.length ? Object.entries(grupos).map(([fe, xs]) => `<div style="display:flex;flex-direction:column;gap:6px"><p class="small"><b>${fmtFecha(fe, { day: "numeric", month: "long", year: "numeric" })}</b></p>
       <div class="thumbs">${xs.map(x => `<button class="thumb" data-act="verFoto" data-id="${x.id}"><img src="${esc(x.url)}" alt="${POSES[x.pose] || "Foto"} del ${fmtFecha(x.fecha)}" loading="lazy"><span>${POSES[x.pose] || ""}</span></button>`).join("")}</div></div>`).join("")
     : `<p class="small muted">Sacate fotos de frente, perfil y espalda cada 2 o 4 semanas. Los cambios que la balanza no muestra se ven acá.</p>`}
@@ -786,9 +899,11 @@ function dibujarResumen() {
       <div class="stat"><span class="num">${vol >= 10000 ? fmtKg(vol / 1000) + "t" : fmtKg(vol)}</span><span class="lbl">kg levantados</span></div>
     </div>
     <div class="stat"><span class="lbl">Peso del mes</span><b>${pesoTxt}</b></div>
+    ${(() => { const car = S.cardio.filter(c => c.fecha.startsWith(m)); return car.length ? `<div class="stat"><span class="lbl">Cardio</span><b>${car.reduce((a, c) => a + (c.minutos || 0), 0)} minutos en ${car.length} ${car.length === 1 ? "sesión" : "sesiones"}</b></div>` : ""; })()}
     <div><span class="eyebrow">Récords del mes</span>${prs.length ? `<div class="list">${prs.map(x => `<div class="li"><div class="grow"><b>${esc(x.ejercicio)}</b> <span class="muted small">${fmtKg(x.kg)} kg × ${x.reps} · ${fmtFecha(x.fecha)}</span></div></div>`).join("")}</div>` : `<p class="small muted">Sin récords este mes.</p>`}</div>
     ${par ? `<div><span class="eyebrow">Comienzo y fin de mes</span><div class="pair">${par.map(x => `<figure><img src="${esc(x.url)}" alt="Foto del ${fmtFecha(x.fecha)}">${fmtFecha(x.fecha)}</figure>`).join("")}</div></div>` : `<p class="small muted">Con fotos de dos días distintos del mes vas a ver acá el comienzo y el final lado a lado.</p>`}
-    <button data-act="cerrar">Cerrar</button>`);
+    <div class="row"><button class="grow" data-act="cerrar">Cerrar</button><button class="primary grow" data-act="compartirMes">Compartir</button></div>`);
+  ultimoResumen = { nombre, dias, series, vol, prs: prs.length };
 }
 
 const A = {
@@ -822,7 +937,7 @@ const A = {
   empezar(t) {
     const r = S.rutinas.find(x => x.id === t.dataset.id);
     borrador = { rutinaId: r?.id || null, nombre: r?.nombre || "", inicio: Date.now(), ejercicios: r ? r.ejercicios.map(e => ejercicioBorrador(e.nombre, e.series, e.reps)) : [] };
-    guardarBorrador(); mantenerPantalla(); render(); scrollTo(0, 0);
+    vista = "gym"; guardarBorrador(); mantenerPantalla(); render(); scrollTo(0, 0);
   },
   okSerie(t) {
     const e = borrador.ejercicios[+t.dataset.e], s = e.series[+t.dataset.s];
@@ -1013,18 +1128,18 @@ async function subirFoto(file) {
     await guardar("fotos", { id: nid(), fecha, pose, assetId: r.id, url: r.url });
     render(); toast("Foto guardada"); avisarMedallas(antes);
   } catch (e) {
-    if (e?.code !== "login") toast(e?.code === 413 ? "La foto es muy pesada. Probá con otra." : "No se pudo subir la foto. Probá de nuevo.");
-    if (lbl) lbl.firstChild.textContent = "Elegir o sacar foto";
+    if (e?.code !== "login") toast(e?.code === "red" ? "Sin señal: las fotos se suben solo con internet." : e?.code === 413 ? "La foto es muy pesada. Probá con otra." : "No se pudo subir la foto. Probá de nuevo.");
+    if (lbl) lbl.firstChild.textContent = "Elegir de la galería";
   }
 }
 
 /* ---------- arranque ---------- */
 async function cargar() {
+  await vaciarCola();
   const t = await apiFetch("/api/todo");
   COLLS.forEach(c => S[c] = t[c] || []);
   if (t.ajustes?.general) S.cfg = { ...S.cfg, ...t.ajustes.general };
-  sortAll();
-  ls.set("copia", { ...t, guardada: Date.now() });
+  aplicarCola(); sortAll(); guardarCopia();
 }
 async function iniciar() {
   const copia = ls.get("copia", null);
@@ -1081,9 +1196,10 @@ function tarjetaNotif() {
   if (esIOS && !instalada) cuerpo = `<p class="small">En iPhone las notificaciones funcionan solo con la app instalada. Tocá el botón <b>Compartir</b> de Safari, elegí <b>Agregar a inicio</b> y abrila desde el ícono.</p>`;
   else if (!soporta) cuerpo = `<p class="small muted">Este navegador no permite notificaciones. Probá instalando la app desde Chrome (Android) o Safari (iPhone).</p>`;
   else if (Notification.permission === "denied") cuerpo = `<p class="small muted">Las notificaciones están bloqueadas. Activalas desde los ajustes del celular, en la sección de esta app o del navegador.</p>`;
-  else if (pushActivo) cuerpo = `<p class="small">Activadas. Todas las noches a las 21:00 te aviso si te faltan días de gym, si hace mucho que no anotás tu peso o no te sacás fotos, y te felicito por tus récords.</p>
+  else if (pushActivo) cuerpo = `<p class="small">Activadas. Todos los días a esta hora te aviso qué rutina toca, si te faltan días de gym, si hace mucho que no anotás tu peso o no te sacás fotos, y te felicito por tus récords.</p>
+    <label class="f">Hora del aviso<select id="hAviso">${Array.from({ length: 17 }, (_, i) => i + 7).map(h => `<option value="${h}" ${h === (S.cfg.horaAviso ?? 21) ? "selected" : ""}>${String(h).padStart(2, "0")}:00</option>`).join("")}</select></label>
     <div class="row"><button class="grow" data-act="pushPrueba">Probar ahora</button><button class="danger" data-act="pushOff">Desactivar</button></div>`;
-  else cuerpo = `<p class="small muted">Recibí un aviso a las 21:00 cuando te falten días de gym, peso o fotos, y cuando consigas un récord.</p><button class="primary block" data-act="pushOn">Activar notificaciones</button>`;
+  else cuerpo = `<p class="small muted">Recibí un aviso todos los días (vos elegís la hora) cuando te falten días de gym, peso o fotos, y cuando consigas un récord.</p><button class="primary block" data-act="pushOn">Activar notificaciones</button>`;
   return `<section class="card"><div class="card-head"><span class="eyebrow">Notificaciones</span>${pushActivo ? `<span class="pill good">Activadas</span>` : ""}</div>${cuerpo}</section>`;
 }
 Object.assign(A, {
@@ -1118,12 +1234,15 @@ Object.assign(A, {
 });
 const inicioBase = V.inicio;
 function tarjetaCopia() {
-  return `<section class="card"><span class="eyebrow">Copia de seguridad</span>
-    <p class="small muted">Bajate un archivo con todos tus pesos, rutinas, entrenamientos y objetivos. Las fotos quedan guardadas en tu servidor.</p>
+  return `<section class="card"><span class="eyebrow">Para el nutri</span>
+    <p class="small muted">Un informe con tu peso, entrenamientos, sueño y energía desde la fecha que elijas, para mostrar en la consulta.</p>
+    <button class="primary block" data-act="informe">Ver informe</button></section>
+  <section class="card"><span class="eyebrow">Copia de seguridad</span>
+    <p class="small muted">Bajate un archivo con todos tus pesos, rutinas, entrenamientos, cardio, notas y objetivos. Las fotos quedan guardadas en tu servidor.</p>
     <button class="block" data-act="copia">Descargar copia</button></section>`;
 }
 A.copia = () => {
-  const datos = { app: "Fierro y Balanza", exportado: new Date().toISOString(), pesos: S.pesos, sesiones: S.sesiones, rutinas: S.rutinas, fotos: S.fotos.map(({ url, ...f }) => f), ajustes: S.cfg };
+  const datos = { app: "Fierro y Balanza", exportado: new Date().toISOString(), pesos: S.pesos, sesiones: S.sesiones, rutinas: S.rutinas, cardio: S.cardio, notas: S.notas, fotos: S.fotos.map(({ url, ...f }) => f), ajustes: S.cfg };
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" }));
   a.download = `fierro-y-balanza-${hoy()}.json`;
@@ -1136,6 +1255,396 @@ V.inicio = () => inicioBase() + tarjetaNotif() + tarjetaCopia();
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").then(async r => { swReg = await navigator.serviceWorker.ready; await estadoPush(); if (vista === "inicio" && estado !== "login") render(); }).catch(() => {});
 }
+/* ---------- plan de la semana ---------- */
+const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+function rutinaDelDia(offset = 0) {
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  const v = (S.cfg.plan || {})[(d.getDay() + 6) % 7];
+  if (!v) return null;
+  if (v === "descanso") return { descanso: true };
+  const r = S.rutinas.find(x => x.id === v);
+  return r ? { rutina: r } : null;
+}
+function botonHoy() {
+  if (borrador) return `<button class="primary block" data-act="go" data-v="gym">Seguir entrenamiento</button>`;
+  const h = rutinaDelDia();
+  if (h?.rutina) return `<button class="primary block" data-act="empezar" data-id="${h.rutina.id}">Hoy toca ${esc(h.rutina.nombre)} · Empezar</button>`;
+  if (h?.descanso) return `<p class="small muted" style="text-align:center">Hoy es día de descanso según tu plan.</p><button class="block" data-act="go" data-v="gym">Entrenar igual</button>`;
+  return `<button class="primary block" data-act="go" data-v="gym">Entrenar hoy</button>`;
+}
+function tarjetaPlan() {
+  if (!S.rutinas.length) return `<section class="card"><span class="eyebrow">Plan de la semana</span><p class="small muted">Cuando tengas rutinas, acá elegís qué día hacés cada una. La app te dice qué toca hoy y la notificación te avisa qué toca mañana.</p></section>`;
+  const plan = S.cfg.plan || {}, hoyI = (new Date().getDay() + 6) % 7;
+  return `<section class="card"><span class="eyebrow">Plan de la semana</span>
+    <div class="plan">${DIAS_SEMANA.map((d, i) => `<label class="plan-row ${i === hoyI ? "hoy" : ""}"><span>${d}${i === hoyI ? " · hoy" : ""}</span>
+      <select data-plan="${i}" aria-label="Rutina del ${d}"><option value="">Sin plan</option><option value="descanso" ${plan[i] === "descanso" ? "selected" : ""}>Descanso</option>
+      ${S.rutinas.map(r => `<option value="${r.id}" ${plan[i] === r.id ? "selected" : ""}>${esc(r.nombre)}</option>`).join("")}</select></label>`).join("")}</div></section>`;
+}
+
+/* ---------- cardio ---------- */
+const TIPOS_CARDIO = { cinta: "Cinta", bici: "Bici", caminata: "Caminata", eliptica: "Elíptica", otro: "Otro" };
+function tarjetaCardio() {
+  const ult = [...S.cardio].reverse().slice(0, 5);
+  return `<section class="card"><span class="eyebrow">Cardio</span>
+    <form id="fCardio" style="display:flex;flex-direction:column;gap:10px">
+      <div class="grid2"><label class="f">Tipo<select id="cTipo">${Object.entries(TIPOS_CARDIO).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></label>
+        <label class="f">Fecha<input type="date" id="cFecha" value="${hoy()}" max="${hoy()}"></label></div>
+      <div class="grid3"><label class="f">Minutos<input id="cMin" inputmode="numeric" placeholder="30"></label><label class="f">Km<input id="cKm" inputmode="decimal" placeholder="Opcional"></label><label class="f">Pasos<input id="cPasos" inputmode="numeric" placeholder="Opcional"></label></div>
+      <button type="submit">Guardar cardio</button>
+    </form>
+    ${ult.length ? `<div class="list">${ult.map(c => `<div class="li"><div class="grow"><p><b>${TIPOS_CARDIO[c.tipo] || "Cardio"}</b> · ${c.minutos} min${c.km ? ` · ${fmtKg(c.km)} km` : ""}${c.pasos ? ` · ${c.pasos.toLocaleString("es-UY")} pasos` : ""}</p>
+      <p class="small muted">${fmtFecha(c.fecha, { weekday: "short", day: "numeric", month: "short" })}</p></div><button class="danger small" data-act="borrarCardio" data-id="${c.id}" data-confirm>Borrar</button></div>`).join("")}</div>`
+    : `<p class="small muted">Los días con cardio también cuentan para tu racha.</p>`}
+  </section>`;
+}
+
+/* ---------- calendario del año ---------- */
+function tarjetaCalendario() {
+  const gym = new Set(S.sesiones.map(s => s.fecha)), car = new Set(S.cardio.map(c => c.fecha));
+  const fin = new Date(), ini = lunes(new Date(fin.getFullYear(), fin.getMonth(), fin.getDate() - 52 * 7));
+  const cel = 11, gap = 3, x0 = 16, y0 = 14, semanas = Math.floor((lunes(fin) - ini) / (7 * 864e5)) + 1;
+  let rects = "", meses = "", mesPrev = -1, total = 0;
+  for (let w = 0; w < semanas; w++) for (let d = 0; d < 7; d++) {
+    const dt = new Date(ini); dt.setDate(ini.getDate() + w * 7 + d);
+    if (dt > fin) continue;
+    const k = ymd(dt), g = gym.has(k), c = car.has(k);
+    if (g || c) total++;
+    if (d === 0 && dt.getMonth() !== mesPrev && w < semanas - 2) { mesPrev = dt.getMonth(); meses += `<text x="${x0 + w * (cel + gap)}" y="9">${dt.toLocaleDateString("es-UY", { month: "short" }).replace(".", "")}</text>`; }
+    rects += `<rect x="${x0 + w * (cel + gap)}" y="${y0 + d * (cel + gap)}" width="${cel}" height="${cel}" rx="2" class="${g ? "hg" : c ? "hc" : "h0"}"><title>${fmtFecha(k, { day: "numeric", month: "short", year: "numeric" })}${g ? " · gimnasio" : c ? " · cardio" : ""}</title></rect>`;
+  }
+  const W = x0 + semanas * (cel + gap), H = y0 + 7 * (cel + gap);
+  const dias = [[0, "L"], [2, "M"], [4, "V"]].map(([i, t]) => `<text x="0" y="${y0 + i * (cel + gap) + 9}">${t}</text>`).join("");
+  return `<section class="card"><div class="card-head"><span class="eyebrow">Tu año</span><span class="pill">${total} ${total === 1 ? "día entrenado" : "días entrenados"}</span></div>
+    <div class="heat"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Días entrenados en los últimos 12 meses">${meses}${dias}${rects}</svg></div>
+    <div class="row small muted"><span class="lg hg"></span>Gimnasio<span class="lg hc"></span>Solo cardio<span class="lg h0"></span>Sin entrenar</div></section>`;
+}
+
+/* ---------- notas por ejercicio ---------- */
+const slug = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "ejercicio";
+const notaDe = nombre => S.notas.find(n => n.id === slug(nombre));
+const notaHtml = nombre => { const n = notaDe(nombre); return n?.texto ? `<p class="nota small"><b>Nota:</b> ${esc(n.texto)}</p>` : ""; };
+let notaEj = null;
+
+/* ---------- calculadora de discos ---------- */
+const DISCOS = [25, 20, 15, 10, 5, 2.5, 1.25];
+const fmtDisco = n => (Math.round(n * 100) / 100).toLocaleString("es-UY", { maximumFractionDigits: 2 });
+let barraKg = ls.get("barra", 20);
+function calcularDiscos(total, barra) {
+  let resto = Math.round((total - barra) / 2 * 100) / 100;
+  if (resto < 0) return null;
+  const lado = [];
+  for (const d of DISCOS) while (resto >= d - 1e-9) { lado.push(d); resto = Math.round((resto - d) * 100) / 100; }
+  return { lado, sobra: Math.round(resto * 2 * 100) / 100 };
+}
+function dibujarDiscos() {
+  const el = $("#dRes"); if (!el) return;
+  const total = num($("#dKg").value), barra = +$("#dBarra").value;
+  if (!total) { el.innerHTML = `<p class="small muted">Poné el peso total que querés levantar, contando la barra.</p>`; return; }
+  const r = calcularDiscos(total, barra);
+  if (!r) { el.innerHTML = `<p class="small muted">Ese peso es menor que la barra sola (${barra} kg).</p>`; return; }
+  el.innerHTML = `<p class="small muted">${barra ? "En cada lado de la barra:" : "En cada lado:"}</p>
+    <div class="barra">${barra ? `<span class="eje"></span>` : ""}${r.lado.map(d => `<span class="disco" style="height:${44 + d / 25 * 90}px">${fmtDisco(d)}</span>`).join("") || `<span class="small muted">Sin discos: solo la barra.</span>`}</div>
+    ${r.lado.length ? `<p><b>${r.lado.map(fmtDisco).join(" + ")} kg</b> por lado</p>` : ""}
+    ${r.sobra ? `<p class="small muted">Con discos comunes no llegás exacto: te quedan ${fmtDisco(r.sobra)} kg sin cargar, o sea ${fmtDisco(total - r.sobra)} kg en total.</p>` : ""}`;
+}
+
+/* ---------- cámara con guía ---------- */
+let cam = null;
+async function abrirCamara(facing) {
+  const pose = cam?.pose || $("#fPose")?.value || "frente", fecha = cam?.fecha || $("#fFecha")?.value || hoy();
+  cerrarCamara();
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1920 } }, audio: false }); }
+  catch { toast("No pude abrir la cámara. Revisá que la app tenga permiso de cámara."); return; }
+  cam = { stream, facing, pose, fecha, timer: ls.get("camTimer", 10), cuenta: null };
+  const prev = [...S.fotos].reverse().find(x => x.pose === pose);
+  const espejo = facing === "user" ? "espejo" : "";
+  const el = document.createElement("div"); el.id = "cam"; el.className = "cam";
+  el.innerHTML = `<video playsinline autoplay muted class="${espejo}"></video>
+    ${prev ? `<img class="guia ${espejo}" src="${esc(prev.url)}" alt="" style="opacity:.35">` : ""}
+    <div class="cam-top"><button data-act="camCerrar">Cerrar</button><span class="pill">${POSES[pose]}${prev ? " · guía del " + fmtFecha(prev.fecha) : " · primera foto"}</span><button data-act="camGirar">Girar</button></div>
+    <div class="cam-cuenta" id="camCuenta"></div>
+    <div class="cam-bot">
+      ${prev ? `<label class="small">Guía<input type="range" id="camOp" min="0" max="80" value="35" aria-label="Transparencia de la guía"></label>` : "<span></span>"}
+      <button class="disparo" data-act="camDisparar" aria-label="Sacar foto"></button>
+      <button data-act="camTimer" id="camTimerBtn">${cam.timer ? "Timer " + cam.timer + " s" : "Sin timer"}</button>
+    </div>`;
+  document.body.appendChild(el);
+  const v = el.querySelector("video"); v.srcObject = stream; v.play?.().catch(() => {});
+}
+function cerrarCamara() {
+  if (!cam) return;
+  clearInterval(cam.cuenta);
+  cam.stream.getTracks().forEach(t => t.stop());
+  $("#cam")?.remove(); cam = null;
+}
+function tic() {
+  if (!actx) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime;
+    o.frequency.value = 660; g.gain.setValueAtTime(0.2, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+    o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + 0.13);
+  } catch {}
+}
+async function capturar() {
+  const v = $("#cam video"); if (!v || !v.videoWidth) { toast("La cámara todavía no está lista."); return; }
+  const k = Math.min(1, 1400 / Math.max(v.videoWidth, v.videoHeight));
+  const c = document.createElement("canvas"); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+  c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+  beep();
+  const blob = await new Promise(ok => c.toBlob(ok, "image/jpeg", 0.85));
+  const { pose, fecha } = cam; cerrarCamara();
+  if (blob) await subirBlob(blob, fecha, pose);
+}
+async function subirBlob(blob, fecha, pose) {
+  toast("Subiendo foto…");
+  try {
+    const antes = medallasOn();
+    const r = await assets.upload(blob);
+    await guardar("fotos", { id: nid(), fecha, pose, assetId: r.id, url: r.url });
+    render(); toast("Foto guardada"); avisarMedallas(antes);
+  } catch (e) {
+    if (e?.code !== "login") toast(e?.code === "red" ? "Sin señal: las fotos se suben solo con internet." : e?.code === 413 ? "La foto es muy pesada." : "No se pudo subir la foto. Probá de nuevo.");
+  }
+}
+
+/* ---------- evolución en fotos ---------- */
+let evo = null;
+const fotosPose = pose => S.fotos.filter(x => x.pose === pose);
+const posesConEvolucion = () => Object.keys(POSES).filter(p => fotosPose(p).length >= 2);
+function dibujarEvo() {
+  const fs = fotosPose(evo.pose), poses = posesConEvolucion();
+  sheet(`<div class="card-head"><h2>Tu evolución</h2><button class="ghost" data-act="evoCerrar">Cerrar</button></div>
+    ${poses.length > 1 ? `<div class="seg" style="align-self:flex-start">${poses.map(p => `<button data-act="evoPose" data-v="${p}" aria-pressed="${p === evo.pose}">${POSES[p]}</button>`).join("")}</div>` : ""}
+    <div class="evo"><img id="evoImg" alt="Foto de progreso"><span class="tag" id="evoTag"></span></div>
+    <input type="range" id="evoR" min="0" max="${fs.length - 1}" value="0" aria-label="Elegir foto">
+    <div class="row"><button class="grow" data-act="evoPlay" id="evoPlay">Pausa</button>
+      <label class="f grow">Velocidad<select id="evoVel"><option value="1200">Lenta</option><option value="700" selected>Normal</option><option value="350">Rápida</option></select></label></div>`);
+  fs.forEach(x => { const im = new Image(); im.src = x.url; });
+  evo.i = 0; evo.play = true; evo.vel = 700; mostrarEvo(); arrancarEvo();
+}
+function mostrarEvo() {
+  const x = fotosPose(evo.pose)[evo.i], img = $("#evoImg");
+  if (!img || !x) { clearInterval(evo.id); return; }
+  img.src = x.url;
+  const p = pesoEn(x.fecha);
+  $("#evoTag").textContent = `${fmtFecha(x.fecha, { day: "numeric", month: "short", year: "numeric" })}${p && p.fecha <= x.fecha ? " · " + fmtKg(p.kg) + " kg" : ""}`;
+  $("#evoR").value = evo.i;
+}
+function arrancarEvo() {
+  clearInterval(evo.id);
+  if (!evo.play) return;
+  evo.id = setInterval(() => { evo.i = (evo.i + 1) % fotosPose(evo.pose).length; mostrarEvo(); }, evo.vel);
+}
+
+/* ---------- compartir logros ---------- */
+let imagenActual = null, ultimoResumen = null;
+function dibujarPesa(x, cx, cy, s) {
+  x.fillStyle = "#D8B24A";
+  const r = (X, Y, W, H) => { x.beginPath(); const a = [cx + (X - 256) * s, cy + (Y - 256) * s, W * s, H * s]; x.roundRect ? x.roundRect(...a, 10 * s) : x.rect(...a); x.fill(); };
+  r(132, 160, 44, 192); r(336, 160, 44, 192); r(96, 200, 32, 112); r(384, 200, 32, 112); r(172, 238, 168, 36);
+}
+function lineas(x, texto, ancho) {
+  const out = []; let linea = "";
+  for (const p of String(texto).split(" ")) { const t = linea ? linea + " " + p : p; if (x.measureText(t).width > ancho && linea) { out.push(linea); linea = p; } else linea = t; }
+  if (linea) out.push(linea);
+  return out;
+}
+async function imagenLogro({ titulo, grande, unidad, detalle, fecha }) {
+  try { await Promise.all([document.fonts.load('700 200px "Barlow Condensed"'), document.fonts.load('500 40px "Figtree"')]); } catch {}
+  const c = document.createElement("canvas"); c.width = 1080; c.height = 1920;
+  const x = c.getContext("2d");
+  x.fillStyle = "#0A0A0B"; x.fillRect(0, 0, 1080, 1920);
+  x.strokeStyle = "#D8B24A"; x.lineWidth = 6; x.strokeRect(60, 60, 960, 1800);
+  x.textAlign = "center";
+  x.fillStyle = "#D8B24A"; x.font = '700 64px "Barlow Condensed", "Arial Narrow", sans-serif';
+  x.fillText(titulo.toUpperCase(), 540, 560);
+  let size = 360; x.font = `700 ${size}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+  while (x.measureText(grande).width > 860 && size > 120) { size -= 10; x.font = `700 ${size}px "Barlow Condensed", "Arial Narrow", sans-serif`; }
+  x.fillStyle = "#F3EEE2"; const yG = 600 + size * 0.85; x.fillText(grande, 540, yG);
+  let y = yG + 30;
+  if (unidad) { x.fillStyle = "#D8B24A"; x.font = '700 92px "Barlow Condensed", "Arial Narrow", sans-serif'; y += 92; x.fillText(unidad.toUpperCase(), 540, y); }
+  x.fillStyle = "#F3EEE2"; x.font = '500 50px "Figtree", sans-serif'; y += 60;
+  for (const l of lineas(x, detalle, 840)) { y += 66; x.fillText(l, 540, y); }
+  if (fecha) { x.fillStyle = "#9E988A"; x.font = '500 40px "Figtree", sans-serif'; y += 70; x.fillText(fecha, 540, y); }
+  dibujarPesa(x, 540, 1560, 0.55);
+  x.fillStyle = "#D8B24A"; x.font = '700 60px "Barlow Condensed", "Arial Narrow", sans-serif'; x.fillText("FIERRO Y BALANZA", 540, 1720);
+  return new Promise(ok => c.toBlob(ok, "image/png"));
+}
+async function mostrarImagen(datos, texto) {
+  toast("Armando la imagen…");
+  const blob = await imagenLogro(datos);
+  if (!blob) { toast("No se pudo armar la imagen."); return; }
+  if (imagenActual?.url) URL.revokeObjectURL(imagenActual.url);
+  imagenActual = { blob, url: URL.createObjectURL(blob), texto, nombre: `fierro-y-balanza-${hoy()}.png` };
+  const file = new File([blob], imagenActual.nombre, { type: "image/png" });
+  const puede = !!navigator.canShare?.({ files: [file] });
+  sheet(`<div class="card-head"><h2>Compartir</h2><button class="ghost" data-act="cerrar">Cerrar</button></div>
+    <img class="full share-img" src="${imagenActual.url}" alt="${esc(texto)}">
+    <div class="row">${puede ? `<button class="primary grow" data-act="compartirAhora">Compartir</button>` : ""}<a class="btn grow" href="${imagenActual.url}" download="${imagenActual.nombre}">Descargar</a></div>
+    <p class="small muted">Tamaño ideal para historias de Instagram. También podés mantener apretada la imagen para guardarla.</p>`);
+}
+
+/* ---------- informe para el nutri ---------- */
+let infDesde = null;
+function datosInforme(desde) {
+  const h = hoy();
+  const pesos = S.pesos.filter(p => p.fecha >= desde), ses = S.sesiones.filter(s => s.fecha >= desde), car = S.cardio.filter(c => c.fecha >= desde);
+  const dias = new Set([...ses.map(s => s.fecha), ...car.map(c => c.fecha)]).size;
+  const semanas = Math.max(1, (parseYmd(h) - parseYmd(desde)) / (7 * 864e5));
+  const conSueno = ses.filter(s => s.sueno), sueno = conSueno.length ? conSueno.reduce((a, s) => a + s.sueno, 0) / conSueno.length : null;
+  const energia = { alta: 0, media: 0, baja: 0 }; ses.forEach(s => { if (energia[s.energia] !== undefined) energia[s.energia]++; });
+  const prs = ses.flatMap(s => (s.prs || []).map(p => ({ ...p, fecha: s.fecha })));
+  const sem = promediosSemanales().filter(w => w.semana >= ymd(lunes(parseYmd(desde))));
+  return { desde, h, pesos, ses, car, dias, porSemana: dias / semanas, sueno, nSueno: conSueno.length, energia, prs, sem, cardioMin: car.reduce((a, c) => a + (c.minutos || 0), 0) };
+}
+function textoInforme(d) {
+  const L = [`Informe Fierro y Balanza · ${fmtFecha(d.desde, { day: "numeric", month: "short", year: "numeric" })} al ${fmtFecha(d.h, { day: "numeric", month: "short", year: "numeric" })}`];
+  if (d.pesos.length) L.push(`Peso: ${fmtKg(d.pesos[0].kg)} → ${fmtKg(d.pesos.at(-1).kg)} kg (${d.pesos.length} registros)`);
+  if (d.sem.length > 1) L.push(`Promedio semanal: ${fmtKg(d.sem[0].kg)} → ${fmtKg(d.sem.at(-1).kg)} kg`);
+  L.push(`Entrenamiento: ${d.dias} días (${fmtKg(d.porSemana)} por semana), ${d.ses.length} sesiones de gym${d.cardioMin ? `, ${d.cardioMin} min de cardio` : ""}`);
+  if (d.sueno) L.push(`Sueño promedio: ${fmtKg(d.sueno)} h`);
+  if (d.ses.some(s => s.energia)) L.push(`Energía: alta ${d.energia.alta}, media ${d.energia.media}, baja ${d.energia.baja}`);
+  if (d.prs.length) L.push(`Récords: ${d.prs.map(p => `${p.ejercicio} ${fmtKg(p.kg)} kg`).join(", ")}`);
+  return L.join("\n");
+}
+function dibujarInforme() {
+  const d = datosInforme(infDesde);
+  const dp = d.pesos.length > 1 ? d.pesos.at(-1).kg - d.pesos[0].kg : null;
+  const signo = v => v < 0 ? "−" : v > 0 ? "+" : "";
+  sheet(`<div class="informe">
+    <div class="card-head no-print"><h2>Informe para el nutri</h2><button class="ghost" data-act="cerrar">Cerrar</button></div>
+    <h2 class="solo-print">Fierro y Balanza · Informe</h2>
+    <label class="f no-print">Desde<input type="date" id="infDesde" value="${d.desde}" max="${d.h}"></label>
+    <p class="small muted">Del ${fmtFecha(d.desde, { day: "numeric", month: "long", year: "numeric" })} al ${fmtFecha(d.h, { day: "numeric", month: "long", year: "numeric" })}</p>
+    <div class="stat"><span class="lbl">Peso</span><b>${d.pesos.length ? (dp === null ? `${fmtKg(d.pesos[0].kg)} kg` : `${fmtKg(d.pesos[0].kg)} → ${fmtKg(d.pesos.at(-1).kg)} kg (${signo(dp)}${fmtKg(Math.abs(dp))} kg)`) : "Sin pesos anotados en este período"}</b>
+      ${d.sem.length > 1 ? `<span class="lbl">Promedio semanal: ${fmtKg(d.sem[0].kg)} → ${fmtKg(d.sem.at(-1).kg)} kg</span>` : ""}</div>
+    ${chart(d.pesos.map(x => ({ x: +parseYmd(x.fecha), y: x.kg })), { h: 150, goal: S.cfg.pesoMeta, vacio: "Con dos pesos en el período se ve la curva." })}
+    <div class="grid3">
+      <div class="stat"><span class="num">${d.dias}</span><span class="lbl">días entrenados</span></div>
+      <div class="stat"><span class="num">${fmtKg(d.porSemana)}</span><span class="lbl">por semana</span></div>
+      <div class="stat"><span class="num">${d.cardioMin}</span><span class="lbl">min de cardio</span></div>
+    </div>
+    <div class="grid2">
+      <div class="stat"><span class="lbl">Sueño promedio</span><b>${d.sueno ? fmtKg(d.sueno) + " h" : "Sin datos"}</b>${d.nSueno ? `<span class="lbl">en ${d.nSueno} entrenamientos</span>` : ""}</div>
+      <div class="stat"><span class="lbl">Energía al entrenar</span><b>${d.ses.some(s => s.energia) ? `Alta ${d.energia.alta} · Media ${d.energia.media} · Baja ${d.energia.baja}` : "Sin datos"}</b></div>
+    </div>
+    ${d.prs.length ? `<div><span class="eyebrow">Récords</span><div class="list">${d.prs.map(p => `<div class="li"><div class="grow"><b>${esc(p.ejercicio)}</b> <span class="small muted">${fmtKg(p.kg)} kg × ${p.reps} · ${fmtFecha(p.fecha)}</span></div></div>`).join("")}</div></div>` : ""}
+    ${d.pesos.some(p => p.nota) ? `<div><span class="eyebrow">Notas de los pesos</span><div class="list">${d.pesos.filter(p => p.nota).map(p => `<div class="li"><div class="grow small"><b>${fmtFecha(p.fecha)}</b> · ${esc(p.nota)}</div></div>`).join("")}</div></div>` : ""}
+    <div class="row no-print"><button class="grow" data-act="informeCopiar">Copiar texto</button><button class="grow" data-act="informeImprimir">Guardar PDF</button>${navigator.share ? `<button class="primary grow" data-act="informeCompartir">Compartir</button>` : ""}</div>
+  </div>`);
+}
+
+/* ---------- acciones nuevas ---------- */
+Object.assign(A, {
+  async subirAhora() { const ok = await vaciarCola(); toast(ok ? "Listo, se subió todo." : "Todavía no hay señal."); render(); },
+  async borrarCardio(t) { await borrar("cardio", t.dataset.id); render(); toast("Cardio borrado"); },
+  nota(t) {
+    notaEj = t.dataset.ej; const n = notaDe(notaEj);
+    sheet(`<h2>Nota · ${esc(notaEj)}</h2>
+      <textarea id="nTexto" rows="4" maxlength="500" placeholder="Ej.: molestia en el hombro, agarre más cerrado, asiento en el 4">${esc(n?.texto || "")}</textarea>
+      <p class="small muted">La vas a ver cada vez que hagas este ejercicio.</p>
+      <div class="row"><button class="grow" data-act="cerrar">Cancelar</button><button class="primary grow" data-act="guardarNota">Guardar</button></div>
+      ${n ? `<button class="danger" data-act="borrarNota" data-confirm>Borrar nota</button>` : ""}`);
+  },
+  async guardarNota() {
+    const texto = $("#nTexto").value.trim(), id = slug(notaEj);
+    cerrarSheet();
+    if (!texto) { await borrar("notas", id); render(); return; }
+    try { await guardar("notas", { id, ejercicio: notaEj, texto, fecha: hoy() }); } catch { return; }
+    render(); toast("Nota guardada");
+  },
+  async borrarNota() { cerrarSheet(); await borrar("notas", slug(notaEj)); render(); toast("Nota borrada"); },
+  discos(t) {
+    let kg = "";
+    if (t?.dataset.e !== undefined && borrador) {
+      const e = borrador.ejercicios[+t.dataset.e], s = e?.series.find(x => !x.ok) || e?.series[0];
+      kg = s?.kg || s?.phKg || "";
+    }
+    sheet(`<div class="card-head"><h2>Calculadora de discos</h2><button class="ghost" data-act="cerrar">Cerrar</button></div>
+      <div class="grid2"><label class="f">Peso total (kg)<input id="dKg" inputmode="decimal" value="${esc(kg)}" placeholder="Ej.: 87,5"></label>
+        <label class="f">Barra<select id="dBarra">${[[20, "Olímpica 20 kg"], [15, "15 kg"], [10, "10 kg"], [0, "Sin barra o máquina"]].map(([v, t]) => `<option value="${v}" ${v === barraKg ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
+      <div id="dRes"></div>`);
+    dibujarDiscos();
+  },
+  camara() { try { actx ||= new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.(); } catch {} abrirCamara("user"); },
+  camCerrar() { cerrarCamara(); },
+  camGirar() { if (cam) abrirCamara(cam.facing === "user" ? "environment" : "user"); },
+  camTimer(t) { cam.timer = { 0: 3, 3: 10, 10: 0 }[cam.timer] ?? 3; ls.set("camTimer", cam.timer); t.textContent = cam.timer ? "Timer " + cam.timer + " s" : "Sin timer"; },
+  camDisparar() {
+    if (!cam || cam.cuenta) return;
+    let n = cam.timer; const el = $("#camCuenta");
+    if (!n) { capturar(); return; }
+    el.textContent = n; tic();
+    cam.cuenta = setInterval(() => {
+      n--;
+      if (n > 0) { el.textContent = n; tic(); }
+      else { clearInterval(cam.cuenta); cam.cuenta = null; el.textContent = ""; capturar(); }
+    }, 1000);
+  },
+  evolucion() { const poses = posesConEvolucion(); if (!poses.length) return; evo = { pose: poses[0], i: 0, play: true, vel: 700, id: null }; dibujarEvo(); },
+  evoPose(t) { evo.pose = t.dataset.v; dibujarEvo(); },
+  evoPlay(t) { evo.play = !evo.play; t.textContent = evo.play ? "Pausa" : "Reproducir"; arrancarEvo(); },
+  evoCerrar() { clearInterval(evo?.id); cerrarSheet(); },
+  compartirRecord(t) {
+    const d = t.dataset;
+    mostrarImagen({ titulo: "Nuevo récord", grande: fmtKg(+d.kg), unidad: "kg", detalle: `${d.ej} · ${d.reps} ${+d.reps === 1 ? "repetición" : "repeticiones"}`, fecha: fmtFecha(d.f, { day: "numeric", month: "long", year: "numeric" }) }, `Nuevo récord: ${d.ej} ${fmtKg(+d.kg)} kg`);
+  },
+  compartirMedalla(t) { mostrarImagen({ titulo: "Medalla desbloqueada", grande: t.dataset.m, unidad: "", detalle: t.dataset.t, fecha: fmtFecha(hoy(), { day: "numeric", month: "long", year: "numeric" }) }, `Medalla: ${t.dataset.t}`); },
+  compartirMes() {
+    const r = ultimoResumen; if (!r) return;
+    mostrarImagen({ titulo: r.nombre, grande: String(r.dias), unidad: r.dias === 1 ? "día entrenado" : "días entrenados", detalle: `${r.series} series · ${r.vol >= 10000 ? fmtKg(r.vol / 1000) + " toneladas" : fmtKg(r.vol) + " kg"} levantados${r.prs ? ` · ${r.prs} ${r.prs === 1 ? "récord" : "récords"}` : ""}` }, `Mi ${r.nombre} en el gym`);
+  },
+  async compartirAhora() {
+    if (!imagenActual) return;
+    try { await navigator.share({ files: [new File([imagenActual.blob], imagenActual.nombre, { type: "image/png" })], text: imagenActual.texto }); }
+    catch (e) { if (e?.name !== "AbortError") toast("No se pudo compartir. Probá con Descargar."); }
+  },
+  informe() { infDesde ||= ymd(new Date(Date.now() - 30 * 864e5)); dibujarInforme(); },
+  async informeCopiar() {
+    const txt = textoInforme(datosInforme(infDesde));
+    try { await navigator.clipboard.writeText(txt); toast("Texto copiado. Pegalo en WhatsApp o donde quieras."); }
+    catch { toast("No se pudo copiar."); }
+  },
+  informeImprimir() { window.print(); },
+  async informeCompartir() {
+    try { await navigator.share({ title: "Informe Fierro y Balanza", text: textoInforme(datosInforme(infDesde)) }); }
+    catch (e) { if (e?.name !== "AbortError") toast("No se pudo compartir."); }
+  }
+});
+
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "dKg") dibujarDiscos();
+  if (t.id === "camOp") { const g = $("#cam .guia"); if (g) g.style.opacity = t.value / 100; }
+  if (t.id === "evoR" && evo) { evo.i = +t.value; evo.play = false; const b = $("#evoPlay"); if (b) b.textContent = "Reproducir"; arrancarEvo(); mostrarEvo(); }
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "dBarra") { barraKg = +t.value; ls.set("barra", barraKg); dibujarDiscos(); }
+  if (t.id === "evoVel" && evo) { evo.vel = +t.value; arrancarEvo(); }
+  if (t.id === "infDesde" && t.value) { infDesde = t.value; dibujarInforme(); }
+  if (t.dataset.plan !== undefined) {
+    const plan = { ...(S.cfg.plan || {}) };
+    if (t.value) plan[t.dataset.plan] = t.value; else delete plan[t.dataset.plan];
+    S.cfg = { ...S.cfg, plan }; guardarCfg(); toast("Plan guardado");
+  }
+  if (t.id === "hAviso") { S.cfg = { ...S.cfg, horaAviso: +t.value }; guardarCfg(); toast(`Te aviso todos los días a las ${String(t.value).padStart(2, "0")}:00`); }
+});
+document.addEventListener("submit", async e => {
+  if (e.target.id !== "fCardio") return;
+  const minutos = Math.round(num($("#cMin").value) || 0);
+  if (minutos <= 0) { toast("Poné cuántos minutos hiciste."); return; }
+  const km = num($("#cKm").value), pasos = Math.round(num($("#cPasos").value) || 0), antes = medallasOn();
+  try { await guardar("cardio", { id: nid(), fecha: $("#cFecha").value || hoy(), tipo: $("#cTipo").value, minutos, km: km > 0 ? km : null, pasos: pasos > 0 ? pasos : null, creado: Date.now() }); } catch { return; }
+  render(); toast(`Cardio guardado: ${minutos} min`); avisarMedallas(antes);
+});
+addEventListener("online", async () => {
+  if (cola.get().length && await vaciarCola()) toast("Volvió la señal: se subieron tus cambios.");
+  if (estado === "error") A.reintentar(); else render();
+});
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && cola.get().length) vaciarCola().then(ok => ok && render()); });
+
 iniciar();
 </script>
 </body>

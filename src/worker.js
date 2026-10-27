@@ -1,6 +1,6 @@
 import { sendPush } from "./push.js";
 
-const COLECCIONES = new Set(["pesos", "sesiones", "rutinas", "fotos", "ajustes"]);
+const COLECCIONES = new Set(["pesos", "sesiones", "rutinas", "fotos", "ajustes", "cardio", "notas"]);
 const ID_OK = /^[A-Za-z0-9_-]{1,64}$/;
 const COOKIE = "fyb";
 const UY_OFFSET_H = -3; // Uruguay no tiene horario de verano
@@ -43,7 +43,7 @@ async function api(req, env, url) {
 
   if (p === "/api/todo" && method === "GET") {
     const { results } = await env.DB.prepare("SELECT coleccion, id, data FROM registros").all();
-    const out = { pesos: [], sesiones: [], rutinas: [], fotos: [], ajustes: {} };
+    const out = { pesos: [], sesiones: [], rutinas: [], fotos: [], cardio: [], notas: [], ajustes: {} };
     for (const r of results) {
       const d = JSON.parse(r.data);
       if (r.coleccion === "ajustes") out.ajustes[r.id] = d;
@@ -105,7 +105,7 @@ async function api(req, env, url) {
     return json({ ok: true });
   }
   if (p === "/api/push/prueba" && method === "POST") {
-    const r = await enviarATodos(env, { title: "Fierro y Balanza", body: "¡Listo! Las notificaciones funcionan. Te aviso todas las noches a las 21:00 si hay algo." });
+    const r = await enviarATodos(env, { title: "Fierro y Balanza", body: "¡Listo! Las notificaciones funcionan. Te aviso todos los días a la hora que elegiste, si hay algo." });
     return json(r);
   }
   if (p === "/api/avisos" && method === "GET") return json(await calcularAvisos(env));
@@ -133,8 +133,8 @@ const ymd = d => d.toISOString().slice(0, 10);
 const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
 
 async function calcularAvisos(env) {
-  const { results } = await env.DB.prepare("SELECT coleccion, data FROM registros WHERE coleccion IN ('pesos','sesiones','fotos','ajustes')").all();
-  const D = { pesos: [], sesiones: [], fotos: [], cfg: {} };
+  const { results } = await env.DB.prepare("SELECT coleccion, data FROM registros WHERE coleccion IN ('pesos','sesiones','fotos','ajustes','rutinas','cardio')").all();
+  const D = { pesos: [], sesiones: [], fotos: [], rutinas: [], cardio: [], cfg: {} };
   for (const r of results) {
     const d = JSON.parse(r.data);
     if (r.coleccion === "ajustes") D.cfg = d; else D[r.coleccion].push(d);
@@ -145,18 +145,22 @@ async function calcularAvisos(env) {
   const lunes = ymd(new Date(ahora.getTime() - dow * 864e5));
   const meta = D.cfg.diasSemana || 3;
   const avisos = [];
+  // Si el aviso es de mañana, el día de hoy todavía cuenta y los logros son los de ayer
+  const temprano = (D.cfg.horaAviso ?? 21) < 15;
+  const ayer = ymd(new Date(ahora.getTime() - 864e5));
+  const diaLogros = temprano ? ayer : hoy;
 
-  const dias = new Set(D.sesiones.map(s => s.fecha));
+  const dias = new Set([...D.sesiones.map(s => s.fecha), ...D.cardio.map(c => c.fecha)]);
   const estaSemana = [...dias].filter(f => f >= lunes && f <= hoy).length;
   const hoyEntreno = dias.has(hoy);
 
   // logros de hoy
-  const prsHoy = D.sesiones.filter(s => s.fecha === hoy).flatMap(s => s.prs || []);
-  if (prsHoy.length) avisos.push({ p: 0, t: `¡Nuevo récord en ${prsHoy.map(x => `${x.ejercicio} (${String(x.kg).replace(".", ",")} kg)`).join(" y ")}! Hoy rompiste todo 🏆` });
+  const prsHoy = D.sesiones.filter(s => s.fecha === diaLogros).flatMap(s => s.prs || []);
+  if (prsHoy.length) avisos.push({ p: 0, t: `¡Nuevo récord en ${prsHoy.map(x => `${x.ejercicio} (${String(x.kg).replace(".", ",")} kg)`).join(" y ")}! ${temprano ? "Ayer" : "Hoy"} rompiste todo 🏆` });
   const total = D.sesiones.length;
-  if (hoyEntreno && [1, 10, 25, 50, 100, 200].includes(total)) avisos.push({ p: 1, t: total === 1 ? "¡Primer entrenamiento registrado! Arrancaste 💪" : `¡Llegaste a ${total} entrenamientos! Ganaste una medalla nueva 🏅` });
+  if (D.sesiones.some(s => s.fecha === diaLogros) && [1, 10, 25, 50, 100, 200].includes(total)) avisos.push({ p: 1, t: total === 1 ? "¡Primer entrenamiento registrado! Arrancaste 💪" : `¡Llegaste a ${total} entrenamientos! Ganaste una medalla nueva 🏅` });
   const pesos = [...D.pesos].sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const pesoHoy = pesos.filter(p => p.fecha === hoy).at(-1);
+  const pesoHoy = pesos.filter(p => p.fecha === diaLogros).at(-1);
   if (pesoHoy && D.cfg.pesoMeta && pesos.length > 1) {
     const ini = pesos[0].kg, metaKg = D.cfg.pesoMeta;
     if ((ini > metaKg && pesoHoy.kg <= metaKg) || (ini < metaKg && pesoHoy.kg >= metaKg)) avisos.push({ p: 0, t: `¡Llegaste a tu meta de ${String(metaKg).replace(".", ",")} kg! 🎉` });
@@ -164,11 +168,16 @@ async function calcularAvisos(env) {
 
   // gimnasio y racha
   if (estaSemana < meta && total > 0) {
-    const faltan = meta - estaSemana, quedan = 6 - dow; // días desde mañana hasta el domingo
+    const faltan = meta - estaSemana, quedan = temprano ? 7 - dow : 6 - dow; // días que quedan en la semana
     if (faltan > quedan) avisos.push({ p: 1, t: `Esta semana no llegás a los ${meta} días, pero el lunes arranca otra. ¡A no aflojar!` });
     else if (faltan === quedan) avisos.push({ p: 0, t: `Racha en riesgo: te ${faltan === 1 ? "falta 1 día" : `faltan ${faltan} días`} de gym y ${quedan === 1 ? "queda 1 día" : `quedan ${quedan} días`} esta semana.` });
-    else if (!hoyEntreno) avisos.push({ p: 2, t: `Te ${faltan === 1 ? "falta 1 día" : `faltan ${faltan} días`} de gym para cumplir la semana.` });
+    else if (temprano || !hoyEntreno) avisos.push({ p: 2, t: `Te ${faltan === 1 ? "falta 1 día" : `faltan ${faltan} días`} de gym para cumplir la semana.` });
   }
+
+  // plan de la semana
+  const diaPlan = temprano ? dow : (dow + 1) % 7, idPlan = D.cfg.plan?.[diaPlan];
+  const rutinaPlan = idPlan && idPlan !== "descanso" ? D.rutinas.find(r => r.id === idPlan) : null;
+  if (rutinaPlan) avisos.push({ p: 1, t: `${temprano ? "Hoy" : "Mañana"} toca ${rutinaPlan.nombre}.` });
 
   // peso
   const ultPeso = pesos.at(-1);
@@ -194,6 +203,10 @@ export default {
   },
   async scheduled(_ev, env, ctx) {
     ctx.waitUntil((async () => {
+      // El cron corre cada hora; solo se avisa a la hora elegida (por defecto 21, hora de Uruguay)
+      const cfg = await env.DB.prepare("SELECT data FROM registros WHERE coleccion = 'ajustes' AND id = 'general'").first();
+      const hora = (cfg ? JSON.parse(cfg.data).horaAviso : null) ?? 21;
+      if (new Date(Date.now() + UY_OFFSET_H * 3600e3).getUTCHours() !== hora) return;
       const { avisos } = await calcularAvisos(env);
       if (!avisos.length) return;
       await enviarATodos(env, { title: avisos.length > 1 ? `Fierro y Balanza · ${avisos.length} avisos` : "Fierro y Balanza", body: avisos.join("\n"), url: "/" });

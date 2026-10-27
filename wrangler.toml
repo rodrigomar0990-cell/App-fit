@@ -12,9 +12,9 @@ binding = "DB"
 database_name = "fierro-y-balanza"
 database_id = "b574d8dd-d06e-4656-a308-6a4f1f4b34da"
 
-# 00:00 UTC = 21:00 en Uruguay
+# Cada hora; el worker avisa solo a la hora elegida en la app (por defecto 21:00 en Uruguay)
 [triggers]
-crons = ["0 0 * * *"]
+crons = ["0 * * * *"]
 
 [vars]
 VAPID_SUBJECT = "https://fierro-y-balanza.misticpuntos.workers.dev"
