@@ -658,15 +658,22 @@ function vistaSesion() {
 
 V.fotos = () => {
   const f = S.fotos;
-  if (f.length >= 2) {
-    if (!f.some(x => x.id === compA)) compA = f[0].id;
-    if (!f.some(x => x.id === compB)) {
-      const a = f.find(x => x.id === compA);
-      compB = ([...f].reverse().find(x => x.pose === a.pose && x.id !== a.id) || f.at(-1)).id;
+  const hayDosFechas = new Set(f.map(x => x.fecha)).size >= 2;
+  if (hayDosFechas) {
+    if (!f.some(x => x.id === compA)) {
+      // Por defecto: la primera y la última foto de una misma pose que tenga fotos de dos fechas
+      const pose = Object.keys(POSES).find(p => new Set(f.filter(x => x.pose === p).map(x => x.fecha)).size >= 2);
+      const delaPose = pose ? f.filter(x => x.pose === pose) : f;
+      compA = delaPose[0].id; compB = delaPose.at(-1).id;
     }
-  }
+    const a = f.find(x => x.id === compA), b = f.find(x => x.id === compB);
+    if (!b || b.fecha === a.fecha) {
+      const otras = [...f].reverse().filter(x => x.fecha !== a.fecha);
+      compB = (otras.find(x => x.pose === a.pose) || otras[0]).id;
+    }
+  } else { compA = compB = null; }
   const A = f.find(x => x.id === compA), B = f.find(x => x.id === compB);
-  const opt = sel => [...f].reverse().map(x => `<option value="${x.id}" ${x.id === sel ? "selected" : ""}>${fmtFecha(x.fecha, { day: "numeric", month: "short", year: "numeric" })} · ${POSES[x.pose] || ""}</option>`).join("");
+  const opt = (sel, excluirFecha) => [...f].reverse().filter(x => x.id === sel || x.fecha !== excluirFecha).map(x => `<option value="${x.id}" ${x.id === sel ? "selected" : ""}>${fmtFecha(x.fecha, { day: "numeric", month: "short", year: "numeric" })} · ${POSES[x.pose] || ""}</option>`).join("");
   const grupos = {};
   [...f].reverse().forEach(x => (grupos[x.fecha] ||= []).push(x));
   return `
@@ -684,7 +691,7 @@ V.fotos = () => {
   </section>
   <section class="card">
     <span class="eyebrow">Antes y ahora</span>
-    ${A && B ? `<div class="grid2"><label class="f">Antes<select id="cA">${opt(compA)}</select></label><label class="f">Ahora<select id="cB">${opt(compB)}</select></label></div>
+    ${A && B ? `<div class="grid2"><label class="f">Antes<select id="cA">${opt(compA)}</select></label><label class="f">Ahora<select id="cB">${opt(compB, A.fecha)}</select></label></div>
       <div class="compare" id="cmp">
         <img src="${esc(B.url)}" alt="Foto del ${fmtFecha(B.fecha)}">
         <img src="${esc(A.url)}" alt="Foto del ${fmtFecha(A.fecha)}" id="cmpTop" style="clip-path:inset(0 ${100 - compPos}% 0 0)">
@@ -693,7 +700,7 @@ V.fotos = () => {
       </div>
       <input type="range" id="cmpR" min="0" max="100" value="${compPos}" aria-label="Deslizar para comparar">
       ${(() => { const pa = pesoEn(A.fecha), pb = pesoEn(B.fecha); return pa && pb ? `<p class="small muted" style="text-align:center">${fmtKg(pa.kg)} kg → ${fmtKg(pb.kg)} kg</p>` : ""; })()}`
-    : `<div class="chart-empty">Con dos fotos podés deslizar entre el antes y el ahora.</div>`}
+    : `<div class="chart-empty">Con fotos de dos días distintos podés deslizar entre el antes y el ahora.</div>`}
   </section>
   <section class="card">
     <span class="eyebrow">Galería</span>
@@ -766,7 +773,7 @@ function dibujarResumen() {
   const prs = ses.flatMap(s => (s.prs || []).map(p => ({ ...p, fecha: s.fecha })));
   const ps = S.pesos.filter(p => p.fecha.startsWith(m)), fs = S.fotos.filter(f => f.fecha.startsWith(m));
   let par = null;
-  if (fs.length >= 2) { const a = fs[0], b = [...fs].reverse().find(x => x.pose === a.pose && x.id !== a.id) || fs.at(-1); if (b.id !== a.id) par = [a, b]; }
+  { const a = fs[0], otras = a ? [...fs].reverse().filter(x => x.fecha !== a.fecha) : [], b = otras.find(x => x.pose === a.pose) || otras[0]; if (b) par = [a, b]; }
   const nombre = new Date(y, mo - 1, 1).toLocaleDateString("es-UY", { month: "long", year: "numeric" });
   const prev = ymd(new Date(y, mo - 2, 1)).slice(0, 7), next = ymd(new Date(y, mo, 1)).slice(0, 7);
   const dp = ps.length > 1 ? ps.at(-1).kg - ps[0].kg : null;
@@ -780,7 +787,7 @@ function dibujarResumen() {
     </div>
     <div class="stat"><span class="lbl">Peso del mes</span><b>${pesoTxt}</b></div>
     <div><span class="eyebrow">Récords del mes</span>${prs.length ? `<div class="list">${prs.map(x => `<div class="li"><div class="grow"><b>${esc(x.ejercicio)}</b> <span class="muted small">${fmtKg(x.kg)} kg × ${x.reps} · ${fmtFecha(x.fecha)}</span></div></div>`).join("")}</div>` : `<p class="small muted">Sin récords este mes.</p>`}</div>
-    ${par ? `<div><span class="eyebrow">Comienzo y fin de mes</span><div class="pair">${par.map(x => `<figure><img src="${esc(x.url)}" alt="Foto del ${fmtFecha(x.fecha)}">${fmtFecha(x.fecha)}</figure>`).join("")}</div></div>` : `<p class="small muted">Con dos fotos en el mes vas a ver acá el comienzo y el final lado a lado.</p>`}
+    ${par ? `<div><span class="eyebrow">Comienzo y fin de mes</span><div class="pair">${par.map(x => `<figure><img src="${esc(x.url)}" alt="Foto del ${fmtFecha(x.fecha)}">${fmtFecha(x.fecha)}</figure>`).join("")}</div></div>` : `<p class="small muted">Con fotos de dos días distintos del mes vas a ver acá el comienzo y el final lado a lado.</p>`}
     <button data-act="cerrar">Cerrar</button>`);
 }
 
